@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const PORT = 3002;
+const PORT = 3000;
 
 // ─── Tunnel URL ──────────────────────────────────────────────
 // Set via: TUNNEL_URL=https://xxx.ngrok.io node server.js

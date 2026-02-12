@@ -9,7 +9,7 @@
 
 set -e
 
-PORT=3002
+PORT=3000
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TUNNEL_PID=""
 SERVER_PID=""
@@ -24,6 +24,14 @@ cleanup() {
   exit 0
 }
 trap cleanup EXIT INT TERM
+
+# ─── Kill anything hogging the port ──────────────────────────
+EXISTING_PID=$(lsof -ti :"$PORT" 2>/dev/null || true)
+if [ -n "$EXISTING_PID" ]; then
+  echo "  🔪 Killing process(es) on port $PORT: $EXISTING_PID"
+  kill -9 $EXISTING_PID 2>/dev/null || true
+  sleep 1
+fi
 
 # ─── Start the Node server ───────────────────────────────────
 echo ""
@@ -49,19 +57,26 @@ start_tunnel() {
   # ── Option 1: ngrok ──────────────────────────────────────
   if command -v ngrok &> /dev/null; then
     echo "  🔍 Found ngrok — starting tunnel…"
-    ngrok http "$PORT" --log=stdout --log-level=warn > /tmp/towntalk-ngrok.log 2>&1 &
+    ngrok http "$PORT" --log=stdout --log-level=info > /tmp/towntalk-ngrok.log 2>&1 &
     TUNNEL_PID=$!
 
-    # Wait for ngrok to establish the tunnel (up to 10 seconds)
-    for i in $(seq 1 20); do
+    # Try multiple detection methods for up to 15 seconds
+    for i in $(seq 1 30); do
       sleep 0.5
-      TUNNEL_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
-        | grep -o '"public_url":"https://[^"]*"' \
-        | head -1 \
-        | sed 's/"public_url":"//;s/"//')
-      if [ -n "$TUNNEL_URL" ]; then
-        break
+
+      # Method 1: ngrok local API (works on most versions)
+      if [ -z "$TUNNEL_URL" ]; then
+        TUNNEL_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
+          | grep -oE 'https://[a-zA-Z0-9._-]+\.ngrok[a-zA-Z0-9.-]*\.(app|io|dev)' \
+          | head -1)
       fi
+
+      # Method 2: parse the log file for the URL
+      if [ -z "$TUNNEL_URL" ]; then
+        TUNNEL_URL=$(grep -oE 'https://[a-zA-Z0-9._-]+\.ngrok[a-zA-Z0-9.-]*\.(app|io|dev)' /tmp/towntalk-ngrok.log 2>/dev/null | head -1)
+      fi
+
+      if [ -n "$TUNNEL_URL" ]; then break; fi
     done
 
     if [ -n "$TUNNEL_URL" ]; then
@@ -69,7 +84,9 @@ start_tunnel() {
       push_tunnel_url "$TUNNEL_URL"
       return 0
     else
-      echo "  ⚠️  ngrok started but couldn't detect URL. Check ngrok dashboard."
+      echo "  ⚠️  ngrok started but couldn't detect URL."
+      echo "     Check: cat /tmp/towntalk-ngrok.log"
+      echo "     Or open: http://localhost:4040"
       kill "$TUNNEL_PID" 2>/dev/null
       TUNNEL_PID=""
     fi
