@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TownTalk</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a14;
+    --surface: #12121f;
+    --surface-hover: #1a1a2e;
+    --border: rgba(255,255,255,0.08);
+    --border-focus: #6366f1;
+    --text: #f0f0f5;
+    --text-secondary: rgba(255,255,255,0.45);
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --voted: #f59e0b;
+    --success: #22c55e;
+    --radius: 14px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,20,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-logo {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    transition: background 0.3s;
+  }
+
+  .connection-dot.connected { background: #22c55e; }
+
+  .connected-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ─── Compose Area ─── */
+  .compose {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .compose-input-wrap {
+    position: relative;
+  }
+
+  .compose-input {
+    width: 100%;
+    padding: 14px 16px;
+    padding-right: 52px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    min-height: 52px;
+    max-height: 120px;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+  }
+
+  .compose-input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .compose-input:focus {
+    border-color: var(--border-focus);
+  }
+
+  .compose-send {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .compose-send:active {
+    transform: scale(0.92);
+    background: var(--accent-hover);
+  }
+
+  .compose-send:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .compose-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .char-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .char-count.warn { color: #f59e0b; }
+  .char-count.over { color: #ef4444; }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    padding: 10px 24px;
+    background: var(--success);
+    color: #fff;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 200;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ─── Question List ─── */
+  .section-header {
+    padding: 16px 20px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-secondary);
+  }
+
+  .questions-list {
+    padding: 0 12px 100px;
+  }
+
+  .question-card {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    animation: cardIn 0.3s ease;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .question-text {
+    flex: 1;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .question-time {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+
+  .vote-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 48px;
+    padding: 8px 4px;
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .vote-button:active {
+    transform: scale(0.92);
+  }
+
+  .vote-button.voted {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--voted);
+  }
+
+  .vote-arrow {
+    font-size: 18px;
+    line-height: 1;
+    transition: transform 0.2s;
+  }
+
+  .vote-button.voted .vote-arrow {
+    transform: translateY(-2px);
+  }
+
+  .vote-number {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Empty List ─── */
+  .empty-list {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-secondary);
+  }
+
+  .empty-list-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .empty-list-text {
+    font-size: 15px;
+  }
+
+  /* ─── Connection Banner ─── */
+  .reconnecting-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: rgba(239, 68, 68, 0.15);
+    border-top: 1px solid rgba(239, 68, 68, 0.3);
+    text-align: center;
+    font-size: 13px;
+    color: #fca5a5;
+    display: none;
+    z-index: 200;
+  }
+
+  .reconnecting-banner.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">
+    <div class="header-logo-icon">💬</div>
+    TownTalk
+  </div>
+  <div class="connected-label">
+    <div class="connection-dot" id="conn-dot"></div>
+    <span id="conn-text">Connecting…</span>
+  </div>
+</div>
+
+<!-- Compose -->
+<div class="compose">
+  <div class="compose-input-wrap">
+    <textarea
+      id="compose-input"
+      class="compose-input"
+      placeholder="Ask a question…"
+      rows="1"
+      maxlength="280"
+    ></textarea>
+    <button class="compose-send" id="send-btn" disabled onclick="submitQuestion()">↑</button>
+  </div>
+  <div class="compose-meta">
+    <span class="char-count" id="char-count">0 / 280</span>
+    <span></span>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">Question submitted!</div>
+
+<!-- Section Header -->
+<div class="section-header" id="list-header">Questions</div>
+
+<!-- Question List -->
+<div class="questions-list" id="questions-list">
+  <div class="empty-list" id="empty-list">
+    <div class="empty-list-icon">💬</div>
+    <div class="empty-list-text">No questions yet. Be the first to ask!</div>
+  </div>
+</div>
+
+<!-- Reconnecting Banner -->
+<div class="reconnecting-banner" id="reconnect-banner">
+  Connection lost. Reconnecting…
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const CLIENT_ID = 'mobile-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+let questions = [];
+let votedIds = new Set();
+let connected = false;
+
+// Restore voted IDs from sessionStorage
+try {
+  const stored = sessionStorage.getItem('towntalk-voted');
+  if (stored) votedIds = new Set(JSON.parse(stored));
+} catch (e) {}
+
+function saveVotes() {
+  try { sessionStorage.setItem('towntalk-voted', JSON.stringify([...votedIds])); } catch (e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPOSE INPUT
+// ═══════════════════════════════════════════════════════════════
+const input = document.getElementById('compose-input');
+const sendBtn = document.getElementById('send-btn');
+const charCount = document.getElementById('char-count');
+
+// Auto-resize textarea
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+
+  const len = input.value.trim().length;
+  charCount.textContent = `${input.value.length} / 280`;
+  charCount.className = 'char-count' + (len > 250 ? ' warn' : '') + (len > 280 ? ' over' : '');
+  sendBtn.disabled = len === 0 || len > 280;
+});
+
+// Submit on Enter (without Shift)
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendBtn.disabled) submitQuestion();
+  }
+});
+
+function submitQuestion() {
+  const text = input.value.trim();
+  if (!text || text.length > 280) return;
+
+  ws.send(JSON.stringify({ type: 'submit', text, clientId: CLIENT_ID }));
+
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  charCount.textContent = '0 / 280';
+  charCount.className = 'char-count';
+
+  showToast('Question submitted!');
+  input.blur();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 2000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER QUESTIONS
+// ═══════════════════════════════════════════════════════════════
+function renderQuestions() {
+  const list = document.getElementById('questions-list');
+  const emptyEl = document.getElementById('empty-list');
+  const headerEl = document.getElementById('list-header');
+
+  if (questions.length === 0) {
+    emptyEl.style.display = '';
+    headerEl.textContent = 'Questions';
+    list.innerHTML = '';
+    list.appendChild(emptyEl);
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  headerEl.textContent = `Questions · ${questions.length}`;
+
+  // Build the new list
+  const fragment = document.createDocumentFragment();
+
+  questions.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    card.dataset.id = q.id;
+
+    const hasVoted = votedIds.has(q.id);
+    const ago = timeAgo(q.timestamp);
+
+    card.innerHTML = `
+      <div style="flex:1">
+        <div class="question-text">${escapeHtml(q.text)}</div>
+        <div class="question-time">${ago}</div>
+      </div>
+      <button class="vote-button ${hasVoted ? 'voted' : ''}" onclick="toggleVote('${q.id}')">
+        <span class="vote-arrow">${hasVoted ? '▲' : '△'}</span>
+        <span class="vote-number">${q.votes}</span>
+      </button>
+    `;
+
+    fragment.appendChild(card);
+  });
+
+  list.innerHTML = '';
+  list.appendChild(fragment);
+}
+
+function toggleVote(questionId) {
+  if (votedIds.has(questionId)) {
+    // Un-vote
+    votedIds.delete(questionId);
+    ws.send(JSON.stringify({ type: 'downvote', questionId, clientId: CLIENT_ID }));
+  } else {
+    // Vote
+    votedIds.add(questionId);
+    ws.send(JSON.stringify({ type: 'upvote', questionId, clientId: CLIENT_ID }));
+  }
+  saveVotes();
+
+  // Optimistic UI update
+  const card = document.querySelector(`.question-card[data-id="${questionId}"]`);
+  if (card) {
+    const btn = card.querySelector('.vote-button');
+    const arrow = card.querySelector('.vote-arrow');
+    const num = card.querySelector('.vote-number');
+    const isVoted = votedIds.has(questionId);
+
+    btn.className = 'vote-button' + (isVoted ? ' voted' : '');
+    arrow.textContent = isVoted ? '▲' : '△';
+
+    const currentVotes = parseInt(num.textContent);
+    num.textContent = isVoted ? currentVotes + 1 : Math.max(0, currentVotes - 1);
+
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function timeAgo(ts) {
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 10) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ago`;
+}
+
+// Refresh time-ago labels periodically
+setInterval(() => {
+  document.querySelectorAll('.question-time').forEach((el, i) => {
+    if (questions[i]) el.textContent = timeAgo(questions[i].timestamp);
+  });
+}, 15000);
+
+// ═══════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ═══════════════════════════════════════════════════════════════
+let ws;
+let reconnectTimer;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}`);
+
+  ws.onopen = () => {
+    connected = true;
+    document.getElementById('conn-dot').classList.add('connected');
+    document.getElementById('conn-text').textContent = 'Connected';
+    document.getElementById('reconnect-banner').classList.remove('visible');
+
+    ws.send(JSON.stringify({ type: 'join', role: 'mobile', clientId: CLIENT_ID }));
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'state') {
+        questions = msg.questions;
+        renderQuestions();
+      }
+    } catch (e) { /* ignore */ }
+  };
+
+  ws.onclose = () => {
+    connected = false;
+    document.getElementById('conn-dot').classList.remove('connected');
+    document.getElementById('conn-text').textContent = 'Reconnecting…';
+    document.getElementById('reconnect-banner').classList.add('visible');
+
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+connect();
+</script>
+</body>
+</html>

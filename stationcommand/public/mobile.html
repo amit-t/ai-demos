@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Station Command — Vote</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0a0e17;
+    --surface:  #111827;
+    --surface2: #1a2236;
+    --border:   #1e293b;
+    --text:     #e2e8f0;
+    --text-dim: #64748b;
+    --accent:   #3b82f6;
+    --green:    #22c55e;
+    --red:      #ef4444;
+    --radius:   12px;
+  }
+
+  html, body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100%; overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ─── Header ──────────────────────────────────────── */
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-left {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .header-logo {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .header h1 {
+    font-size: 16px; font-weight: 700;
+  }
+  .header h1 span { color: var(--accent); }
+
+  .connection-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red);
+    transition: background 0.3s;
+  }
+  .connection-dot.connected { background: var(--green); }
+
+  /* ─── Reconnecting Banner ──────────────────────────── */
+  .reconnecting {
+    background: rgba(239, 68, 68, 0.15);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 8px; text-align: center;
+    font-size: 12px; color: var(--red);
+    display: none;
+  }
+  .reconnecting.visible { display: block; }
+
+  /* ─── Dashboard Stats (mini) ───────────────────────── */
+  .mini-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .mini-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    text-align: center;
+  }
+  .mini-stat-value {
+    font-size: 20px; font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .mini-stat-label {
+    font-size: 10px; color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  /* ─── Section Title ────────────────────────────────── */
+  .section-title {
+    padding: 12px 16px 8px;
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+  }
+
+  /* ─── Feature Vote List ────────────────────────────── */
+  .feature-list {
+    padding: 0 16px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .feature-card.voted {
+    border-color: rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  .vote-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+    color: var(--text-dim);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vote-btn:active { transform: scale(0.9); }
+
+  .vote-btn.voted {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+  }
+
+  .feature-info { flex: 1; min-width: 0; }
+
+  .feature-text {
+    font-size: 14px; font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .feature-bar-wrap {
+    margin-top: 6px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .feature-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    transition: width 0.4s ease;
+  }
+
+  .feature-votes {
+    font-size: 16px; font-weight: 800;
+    color: var(--accent);
+    min-width: 28px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Suggest Feature ──────────────────────────────── */
+  .suggest-section {
+    padding: 0 16px 24px;
+  }
+  .suggest-row {
+    display: flex; gap: 8px;
+  }
+  .suggest-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .suggest-input:focus {
+    border-color: var(--accent);
+  }
+  .suggest-input::placeholder { color: var(--text-dim); }
+
+  .suggest-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 14px; font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .suggest-btn:active { opacity: 0.8; }
+  .suggest-btn:disabled {
+    opacity: 0.4; cursor: default;
+  }
+
+  .char-count {
+    font-size: 11px; color: var(--text-dim);
+    text-align: right;
+    padding-top: 4px;
+  }
+
+  /* ─── Alert Feed (latest) ──────────────────────────── */
+  .alert-feed {
+    padding: 0 16px 24px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .alert-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    font-size: 12px;
+    border-left: 3px solid transparent;
+  }
+  .alert-item.warning { border-left-color: #eab308; }
+  .alert-item.success { border-left-color: var(--green); }
+  .alert-item.info    { border-left-color: var(--accent); }
+  .alert-icon { font-size: 13px; flex-shrink: 0; }
+  .alert-text { flex: 1; line-height: 1.4; }
+
+  /* ─── Footer spacer ────────────────────────────────── */
+  .spacer { height: 80px; }
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">⛽</div>
+      <h1>Station <span>Command</span></h1>
+    </div>
+    <div class="connection-dot" id="conn-dot"></div>
+  </div>
+  <div class="reconnecting" id="reconnecting">Reconnecting…</div>
+
+  <!-- Mini Dashboard Stats -->
+  <div class="mini-stats">
+    <div class="mini-stat">
+      <div class="mini-stat-value" id="ms-tx">0</div>
+      <div class="mini-stat-label">Transactions</div>
+    </div>
+    <div class="mini-stat">
+      <div class="mini-stat-value" id="ms-rev">$0</div>
+      <div class="mini-stat-label">Revenue</div>
+    </div>
+    <div class="mini-stat">
+      <div class="mini-stat-value" id="ms-pumps">0</div>
+      <div class="mini-stat-label">Active Pumps</div>
+    </div>
+  </div>
+
+  <!-- Feature Voting -->
+  <div class="section-title">🗳️ Vote for the next feature to build live!</div>
+  <div class="feature-list" id="feature-list"></div>
+
+  <!-- Suggest New Feature -->
+  <div class="section-title">💡 Suggest a Feature</div>
+  <div class="suggest-section">
+    <div class="suggest-row">
+      <input class="suggest-input" id="suggest-input" type="text"
+             placeholder="Type your feature idea…" maxlength="120">
+      <button class="suggest-btn" id="suggest-btn" disabled>Send</button>
+    </div>
+    <div class="char-count"><span id="char-count">0</span>/120</div>
+  </div>
+
+  <!-- Latest Alerts -->
+  <div class="section-title">🔔 Latest Alerts</div>
+  <div class="alert-feed" id="alert-feed"></div>
+
+  <div class="spacer"></div>
+
+<script>
+// ─── Client ID ───────────────────────────────────────────────
+let clientId = sessionStorage.getItem('sc-clientId');
+if (!clientId) {
+  clientId = 'mob-' + Math.random().toString(36).slice(2, 10);
+  sessionStorage.setItem('sc-clientId', clientId);
+}
+
+// Track votes locally
+let myVotes = new Set(JSON.parse(sessionStorage.getItem('sc-votes') || '[]'));
+function saveVotes() {
+  sessionStorage.setItem('sc-votes', JSON.stringify([...myVotes]));
+}
+
+// ─── WebSocket ───────────────────────────────────────────────
+let ws = null;
+let currentFeatures = [];
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}`);
+
+  ws.onopen = () => {
+    document.getElementById('conn-dot').classList.add('connected');
+    document.getElementById('reconnecting').classList.remove('visible');
+    ws.send(JSON.stringify({ type: 'join', role: 'mobile', clientId }));
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'dashboard') render(msg);
+    } catch (err) { /* ignore */ }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('conn-dot').classList.remove('connected');
+    document.getElementById('reconnecting').classList.add('visible');
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// ─── Render ──────────────────────────────────────────────────
+function render(data) {
+  // Mini stats
+  document.getElementById('ms-tx').textContent = data.kpis.transactions.toLocaleString();
+  const revK = (data.kpis.revenue / 1000).toFixed(0);
+  document.getElementById('ms-rev').textContent = '$' + revK + 'k';
+  document.getElementById('ms-pumps').textContent = data.kpis.activePumps;
+
+  // Features
+  currentFeatures = data.features;
+  const list = document.getElementById('feature-list');
+  const maxVotes = Math.max(1, ...data.features.map(f => f.votes));
+
+  list.innerHTML = '';
+  data.features.forEach((f, i) => {
+    const voted = myVotes.has(f.id);
+    const pct = (f.votes / maxVotes) * 100;
+
+    const card = document.createElement('div');
+    card.className = 'feature-card' + (voted ? ' voted' : '');
+
+    card.innerHTML = `
+      <button class="vote-btn ${voted ? 'voted' : ''}" data-id="${f.id}">
+        ${voted ? '✓' : '▲'}
+      </button>
+      <div class="feature-info">
+        <div class="feature-text">${f.text}</div>
+        <div class="feature-bar-wrap">
+          <div class="feature-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+      <div class="feature-votes">${f.votes}</div>
+    `;
+
+    list.appendChild(card);
+  });
+
+  // Alerts
+  const alertIcons = { warning: '⚠️', success: '✅', info: 'ℹ️' };
+  const alertFeed = document.getElementById('alert-feed');
+  alertFeed.innerHTML = '';
+  (data.alerts || []).slice(0, 3).forEach(a => {
+    const item = document.createElement('div');
+    item.className = 'alert-item ' + a.type;
+    item.innerHTML = `
+      <span class="alert-icon">${alertIcons[a.type] || 'ℹ️'}</span>
+      <span class="alert-text">${a.text}</span>
+    `;
+    alertFeed.appendChild(item);
+  });
+}
+
+// ─── Vote Handling ───────────────────────────────────────────
+document.getElementById('feature-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('.vote-btn');
+  if (!btn) return;
+
+  const featureId = btn.dataset.id;
+  if (!featureId) return;
+
+  if (myVotes.has(featureId)) {
+    // Un-vote
+    myVotes.delete(featureId);
+    saveVotes();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'unvote_feature', featureId, clientId }));
+    }
+  } else {
+    // Vote
+    myVotes.add(featureId);
+    saveVotes();
+    if (navigator.vibrate) navigator.vibrate(10);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'vote_feature', featureId, clientId }));
+    }
+  }
+
+  // Optimistic UI
+  btn.classList.toggle('voted');
+  btn.textContent = btn.classList.contains('voted') ? '✓' : '▲';
+  btn.closest('.feature-card').classList.toggle('voted');
+});
+
+// ─── Suggest Feature ─────────────────────────────────────────
+const suggestInput = document.getElementById('suggest-input');
+const suggestBtn = document.getElementById('suggest-btn');
+const charCount = document.getElementById('char-count');
+
+suggestInput.addEventListener('input', () => {
+  const len = suggestInput.value.trim().length;
+  charCount.textContent = len;
+  suggestBtn.disabled = len === 0;
+});
+
+suggestBtn.addEventListener('click', () => {
+  const text = suggestInput.value.trim();
+  if (!text) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'suggest_feature', text, clientId }));
+  }
+  suggestInput.value = '';
+  charCount.textContent = '0';
+  suggestBtn.disabled = true;
+  if (navigator.vibrate) navigator.vibrate(10);
+});
+
+suggestInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !suggestBtn.disabled) {
+    suggestBtn.click();
+  }
+});
+
+// ─── Init ────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>

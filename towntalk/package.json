@@ -1,0 +1,12 @@
+{
+  "name": "towntalk",
+  "version": "1.0.0",
+  "description": "Live Q&A wall with crowd voting for townhall demos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

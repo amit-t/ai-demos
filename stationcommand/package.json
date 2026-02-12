@@ -1,0 +1,10 @@
+{
+  "name": "stationcommand",
+  "version": "1.0.0",
+  "description": "Station Command — Real-time Fuel Station Operations Dashboard (zero dependencies)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "./start.sh"
+  }
+}
