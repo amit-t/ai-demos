@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const PORT = 3001;
+const PORT = 3002;
 
 // ─── Tunnel URL ──────────────────────────────────────────────
 let tunnelUrl = process.env.TUNNEL_URL || null;
