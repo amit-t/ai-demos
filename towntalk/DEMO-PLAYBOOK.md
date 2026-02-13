@@ -104,7 +104,7 @@ Create a file `public/display.html` — a full-screen, dark-themed real-time vis
 ```
 
 **WebSocket protocol:**
-A WebSocket server is already running on the same host. Connect with: `new WebSocket('ws://' + location.host)` — note: use `ws://` not `wss://`, and use `location.host` not `localhost`.
+A WebSocket server is already running on the same host. Connect with: `new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host)` — this auto-detects the protocol so it works both on `localhost` (ws) and through an HTTPS tunnel like ngrok (wss). Always use `location.host` not a hardcoded hostname.
 On connect, send: `{ "type": "join", "role": "display", "clientId": "display-main" }`
 The server sends JSON messages with this exact shape:
 ```json
@@ -394,7 +394,7 @@ Create `public/display.html` — a full-screen, dark-themed real-time Q&A visual
 ```
 
 **WebSocket protocol:**
-Connect with: `new WebSocket('ws://' + location.host)` — use `ws://` not `wss://`, use `location.host` not `localhost`.
+Connect with: `new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host)` — auto-detects protocol for localhost (ws) and HTTPS tunnels like ngrok (wss). Always use `location.host` not a hardcoded hostname.
 On open send: `{ "type": "join", "role": "display", "clientId": "display-main" }`
 Server pushes state updates as:
 ```json
