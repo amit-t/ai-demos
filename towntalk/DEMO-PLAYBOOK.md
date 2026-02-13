@@ -96,42 +96,135 @@ Say to audience: *"First, let me describe what I want the visualization to look 
 
 ### — PROMPT 1 — Copy below this line —
 
-Create a file `public/display.html` — a full-screen, dark-themed real-time visualization for a live Q&A app called "TownTalk".
+Create a file `public/display.html` — a full-screen, dark-themed real-time visualization for a live Q&A app called "TownTalk". This MUST be a single self-contained HTML file with all CSS and JS inline — no external files except the CDN script below.
 
-**How it works:**
-A WebSocket server is already running on the same host. When the page connects, the server sends JSON messages with this shape:
-```json
-{ "type": "state", "questions": [{ "id": "q1", "text": "What's our biggest opportunity?", "votes": 12, "timestamp": 1707600000000 }], "stats": { "totalQuestions": 7, "totalVotes": 42, "connectedUsers": 3 } }
+**CDN (load in a script tag in head):**
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 ```
+
+**WebSocket protocol:**
+A WebSocket server is already running on the same host. Connect with: `new WebSocket('ws://' + location.host)` — note: use `ws://` not `wss://`, and use `location.host` not `localhost`.
 On connect, send: `{ "type": "join", "role": "display", "clientId": "display-main" }`
-State messages arrive whenever questions are added or votes change.
+The server sends JSON messages with this exact shape:
+```json
+{
+  "type": "state",
+  "questions": [
+    { "id": "q1", "text": "What's our biggest opportunity?", "votes": 12, "timestamp": 1707600000000 }
+  ],
+  "stats": { "totalQuestions": 7, "totalVotes": 42, "connectedUsers": 3 }
+}
+```
+State messages arrive whenever questions are added or votes change. Parse with `JSON.parse(event.data)` and check `msg.type === 'state'`, then call your render function with `msg.questions` and `msg.stats`. Auto-reconnect every 2 seconds on close.
 
-**The visualization:**
-- Use D3.js v7 from cdnjs CDN for a force-directed bubble layout
-- Each question is a floating bubble (SVG circle + foreignObject for wrapped text)
-- Bubble radius scales with votes: `radius = min(130, 36 + sqrt(votes) * 14)`
-- D3 forces: center gravity, collision detection, charge repulsion. Popular questions (more votes) get pulled more strongly toward center
-- Color tiers based on vote count:
-  - 0–4 votes: indigo (#6366f1)
-  - 5–14: light indigo (#818cf8)
-  - 15–29: amber (#f59e0b)
-  - 30–49: gold (#fbbf24)
-  - 50+: pink (#f472b6)
-- SVG glow filters for each color tier (feGaussianBlur + feFlood + feMerge), more intense glow for higher tiers
-- Vote count shown as a small badge circle on each bubble's top-right
-- New bubbles enter with an elastic scale-up animation (start at r=0, spring to full size)
-- Bubbles that get removed fade out and shrink
+**HTML structure (layer order matters!):**
+```html
+<canvas id="starfield"></canvas>  <!-- z-index: 0, position: fixed, inset: 0 -->
+<svg id="viz"></svg>               <!-- z-index: 1, position: fixed, inset: 0 -->
+<div id="stats-bar">...</div>     <!-- z-index: 10, position: fixed, top: 0 -->
+```
 
-**Background:** Deep dark theme (#07070f). Add a subtle animated starfield using a canvas layer behind the SVG — ~120 tiny dots that slowly twinkle using sin waves.
+**CRITICAL — SVG setup:**
+The `<svg id="viz">` element MUST have `position: fixed; inset: 0;` in CSS AND you must set its width and height attributes to `window.innerWidth` and `window.innerHeight` in JS on load and on resize:
+```js
+const svg = d3.select('#viz');
+svg.attr('width', window.innerWidth).attr('height', window.innerHeight);
+```
+Without this, D3 renders bubbles but they're invisible because the SVG has zero dimensions.
 
-**Stats bar:** Fixed at top, fading gradient background. Left: "TownTalk" logo text with a small purple-gradient icon. Right: three stat counters (Questions, Votes, Connected) with animated count-up when values change, plus a "Join" button.
+Inside the `<svg>`, include a `<defs>` block with 5 SVG glow filters (one per color tier). Each filter uses feGaussianBlur → feFlood → feComposite → feMerge to create a colored glow behind the bubble. Example for tier 0:
+```html
+<filter id="glow-0" x="-50%" y="-50%" width="200%" height="200%">
+  <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+  <feFlood flood-color="#6366f1" flood-opacity="0.35" result="color"/>
+  <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+```
+Create glow-0 through glow-4 with increasing stdDeviation (6,8,10,12,14) and opacity (0.35→0.55).
 
-**The page must:**
-- Connect to WebSocket at `ws://` + `location.host`
-- Auto-reconnect every 2 seconds if disconnected
-- Update the D3 simulation whenever new state arrives (preserve existing bubble positions)
-- Be a single self-contained HTML file with all CSS and JS inline
-- Work in fullscreen on a 1920x1080 projector
+Also append a `<g>` group inside the SVG: `const g = svg.append('g');` — all bubbles go inside this group.
+
+**D3 Force Simulation (critical — follow this pattern exactly):**
+```js
+let nodes = [];  // mutable array — D3 mutates this with x, y, vx, vy
+
+const simulation = d3.forceSimulation(nodes)
+  .force('center', d3.forceCenter(W / 2, H / 2))
+  .force('charge', d3.forceManyBody().strength(-80))
+  .force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9))
+  .force('x', d3.forceX(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .force('y', d3.forceY(H / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .alphaDecay(0.015)
+  .velocityDecay(0.35)
+  .on('tick', () => {
+    g.selectAll('.bubble').attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+```
+
+**Bubble radius:** `function getRadius(votes) { return Math.min(130, 36 + Math.sqrt(votes) * 14); }`
+
+**Color tiers:**
+- 0–4 votes: #6366f1 (indigo), filter glow-0
+- 5–14: #818cf8 (light indigo), glow-1
+- 15–29: #f59e0b (amber), glow-2
+- 30–49: #fbbf24 (gold), glow-3
+- 50+: #f472b6 (pink), glow-4
+
+**Rendering bubbles (D3 data join — follow this pattern):**
+When a new state message arrives, update your `nodes` array (add new questions, update votes on existing, remove deleted), then do a D3 data join:
+```js
+const bubbles = g.selectAll('.bubble').data(nodes, d => d.id);
+
+// EXIT — fade out removed bubbles
+bubbles.exit().transition().duration(400).style('opacity', 0).remove();
+
+// ENTER — create new bubble groups
+const enter = bubbles.enter().append('g').attr('class', 'bubble')
+  .attr('transform', d => `translate(${d.x},${d.y}) scale(0)`)
+  .style('opacity', 0);
+
+// Add to each entering group: circle, foreignObject with text div, vote badge circle + text
+enter.append('circle').attr('r', d => getRadius(d.votes))
+  .attr('fill', d => getTierColor(d.votes)).attr('fill-opacity', 0.18)
+  .attr('stroke', d => getTierColor(d.votes)).attr('stroke-width', 1.5)
+  .attr('filter', d => getTierGlow(d.votes));
+
+enter.append('foreignObject')
+  .attr('x', d => -getRadius(d.votes) * 0.7)
+  .attr('y', d => -getRadius(d.votes) * 0.7)
+  .attr('width', d => getRadius(d.votes) * 1.4)
+  .attr('height', d => getRadius(d.votes) * 1.4)
+  .append('xhtml:div')  // MUST use xhtml: namespace for foreignObject
+  .attr('class', 'bubble-text')
+  .text(d => d.text);
+
+// Animate entrance with elastic spring
+enter.transition().duration(800)
+  .ease(d3.easeElasticOut.amplitude(1).period(0.4))
+  .attr('transform', d => `translate(${d.x},${d.y}) scale(1)`)
+  .style('opacity', 1);
+
+// MERGE — update existing bubbles (radius, colors, text)
+const merged = enter.merge(bubbles);
+// ... update circle r, fill, stroke, filter; update foreignObject size; update badge text
+
+// Restart simulation
+simulation.nodes(nodes);
+simulation.force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9));
+simulation.alpha(0.4).restart();
+```
+
+**IMPORTANT: preserve existing node positions.** When updating nodes from server state, keep `x`, `y`, `vx`, `vy` from the existing node objects. Only update `votes` and `text`. New nodes get `x = W/2 + random jitter, y = H/2 + random jitter`.
+
+**Background starfield:** A `<canvas>` with `position: fixed; inset: 0; z-index: 0`. Create ~120 stars with random positions. On each `requestAnimationFrame`, draw each star with alpha = `0.25 + 0.55 * (0.5 + 0.5 * sin(t * speed + phase))` for a gentle twinkling effect. Resize canvas on window resize.
+
+**Stats bar:** Fixed at top with `background: linear-gradient(180deg, rgba(7,7,15,0.92) 0%, transparent 100%)`. Left: "TownTalk" logo with gradient purple icon (💬). Right: three stat counters (Questions, Votes, Connected) — animate number changes using requestAnimationFrame stepping. Plus a "Join" button that opens `/mobile.html`.
+
+**CSS:** `.bubble-text` class: `color: #fff; font-size: 13px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; word-break: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.5);`
+
+Body: `background: #07070f; overflow: hidden; width: 100vw; height: 100vh;`
 
 ### — END PROMPT 1 —
 
@@ -151,30 +244,41 @@ Say to audience: *"I want to be able to click a question to zoom in on it. And I
 
 ### — PROMPT 2 — Copy below this line —
 
-Add two features to `public/display.html`:
+Add two features to `public/display.html`. Add the QRCode.js CDN in the `<head>`:
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+```
 
 **1. Spotlight mode:**
-- Clicking any bubble opens a full-screen spotlight overlay
-- The overlay has a blurred dark backdrop (rgba(7,7,15,0.85) + backdrop-filter: blur(20px))
-- A centered card (max-width 800px, rounded corners, subtle glass border) shows:
-  - The question text at ~40px font size
-  - The vote count in large gradient text (indigo to purple)
-  - A "votes" label below
-  - An ✕ close button in the top-right
-- Entry animation: overlay fades in, card scales from 0.9 to 1.0 with a spring cubic-bezier
-- Pressing Escape or clicking outside the card closes it
-- While spotlight is open, the vote count should update in real-time if more votes come in
+- Make each `.bubble` group clickable. On click, open a full-screen spotlight overlay.
+- Add the click handler on the merged selection (after enter.merge): `merged.style('cursor', 'pointer').on('click', (event, d) => openSpotlight(d));`
+- The overlay is a `<div>` with `position: fixed; inset: 0; z-index: 50; background: rgba(7,7,15,0.85); backdrop-filter: blur(20px);`
+- Centered card (max-width 800px, rounded 24px corners, background #111827, border: 1px solid rgba(255,255,255,0.1)):
+  - Question text at 36–40px font size, font-weight 600
+  - Vote count in large text (64px) with gradient color (indigo → purple via background-clip: text)
+  - "votes" label below in #64748b
+  - Close ✕ button top-right
+- Entry: overlay opacity 0→1, card `transform: scale(0.9) → scale(1)` with `cubic-bezier(0.34, 1.56, 0.64, 1)` over 300ms
+- Close on: Escape key, click outside card, or ✕ button
+- Store the spotlighted question ID. In your WebSocket state handler, if spotlight is open, update the displayed vote count from the latest data.
 
 **2. QR code overlay:**
-- Add a keyboard shortcut: pressing Q toggles a full-screen QR code overlay
-- The overlay fetches the server URL from `/api/info` which returns `{ "url": "https://abc123.ngrok.io", "tunnelUrl": "https://abc123.ngrok.io", "localUrl": "http://192.168.1.5:3000" }`. The `url` field is the best URL to use — it will be the public tunnel URL if one is active, or the local IP otherwise.
-- Generate a QR code pointing to `{url}/mobile.html` using the qrcodejs library from cdnjs CDN
-- Display the QR code centered on screen with "Join TownTalk" title, subtitle "Scan with your phone camera to ask questions and vote", and the URL in monospace text below
-- Below the URL, show a small status badge: if `tunnelUrl` is set, show "🌐 Public URL — works from any network" in green; otherwise show "📡 Local network only" in amber
-- Poll `/api/info` every 5 seconds and auto-regenerate the QR code if the URL changes (tunnel may start after the page loads)
-- Spring scale-in animation on open
+- Press Q to toggle a full-screen QR overlay (z-index: 100, above spotlight).
+- On open, fetch `GET /api/info` — this returns:
+  ```json
+  { "ip": "192.168.1.5", "port": 3000, "url": "https://abc.ngrok-free.app", "localUrl": "http://192.168.1.5:3000", "tunnelUrl": "https://abc.ngrok-free.app" }
+  ```
+  The `url` field is the best URL (tunnel if available, else local IP).
+- Build QR URL: `info.url + '/mobile.html'`
+- Create QR code using: `new QRCode(containerElement, { text: mobileUrl, width: 220, height: 220, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M })`
+- Display centered on dark blurred backdrop: white-background card with QR image, "Join TownTalk" title, scan instruction subtitle, and the URL in monospace below.
+- Below URL: if `info.tunnelUrl` exists, show green badge "🌐 Public URL"; else amber badge "📡 Local network only"
+- **Poll `/api/info` every 5 seconds** using `setInterval`. If the URL changes, clear the QR container innerHTML and regenerate. This handles the tunnel starting after the page loads.
+- Close on: press Q again, press Escape, or click the backdrop.
 
-Also add a hint bar at the bottom of the screen: a small pill-shaped element with low-opacity text saying "Click any bubble to spotlight · Press Q for QR code"
+**3. Hint bar:** At the very bottom of the screen, a small pill-shaped `<div>` with `position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); opacity: 0.4; font-size: 12px;` saying "Click any bubble to spotlight · Press Q for QR code · Press S to simulate"
+
+**Keyboard shortcuts:** Q = toggle QR, Escape = close QR or spotlight, F = toggle fullscreen, R = send `{ "type": "reset" }` to WebSocket.
 
 ### — END PROMPT 2 —
 
@@ -194,15 +298,18 @@ Say to audience: *"Now before I open this up to all of you, let me show you what
 
 Add a simulation mode to `public/display.html`:
 
-- Pressing S toggles simulation mode on/off
-- When active, show a small orange banner below the stats bar: "⚡ Simulation Mode — generating fake activity"
-- Every 400ms, randomly either:
-  - Submit a new fake question (30% chance) by sending `{ "type": "submit", "text": "...", "clientId": "sim-xxx" }` over the WebSocket. Use these sample questions: "What's the biggest challenge we face this year?", "How can we improve onboarding?", "Should we invest more in developer tooling?", "What's one process you'd eliminate?", "How do you feel about hybrid work?", "What would you build with a free week?", "How can we improve cross-team communication?", "What training would help you grow?", "Should we host more social events?", "How can leadership be more transparent?"
-  - Upvote a random existing question (70% chance), weighted toward already-popular questions, by sending `{ "type": "upvote", "questionId": "...", "clientId": "sim-[random]" }`. Use a unique random clientId each time so votes aren't blocked by the server's duplicate-vote check.
+- Add a boolean `let simulating = false;` and a timer variable `let simTimer = null;`
+- Pressing **S** toggles simulation on/off:
+  - On: set `simulating = true`, start a `setInterval` every 400ms, show an orange banner
+  - Off: set `simulating = false`, `clearInterval(simTimer)`, hide the banner
+- The orange banner is a `<div>` positioned fixed below the stats bar: `top: 64px; left: 50%; transform: translateX(-50%); background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.4); color: #f97316; padding: 6px 16px; border-radius: 20px; font-size: 12px; z-index: 10;` Text: "⚡ Simulation Mode"
 
-Also add these keyboard shortcuts:
-- F: toggle fullscreen
-- R: send `{ "type": "reset" }` to reset all questions back to seeds (only works when QR overlay and spotlight are both closed)
+- Every 400ms interval tick, send a WebSocket message. Use `Math.random() < 0.3` to decide:
+  - **30% chance — submit a new question:** Send `{ "type": "submit", "text": "<random from list>", "clientId": "sim-" + Math.random().toString(36).slice(2,8) }`. Use these questions:
+    "What's the biggest challenge we face this year?", "How can we improve onboarding?", "Should we invest more in developer tooling?", "What's one process you'd eliminate?", "How do you feel about hybrid work?", "What would you build with a free week?", "How can we improve cross-team communication?", "What training would help you grow?", "Should we host more social events?", "How can leadership be more transparent?"
+  - **70% chance — upvote a random question:** Pick a random question from the current `nodes` array (you can weight toward popular ones by using `Math.random() * Math.random()` as index). Send `{ "type": "upvote", "questionId": node.id, "clientId": "sim-" + Math.random().toString(36).slice(2,8) }`. The unique clientId ensures the server doesn't block it as a duplicate vote.
+
+- Make sure the S key handler checks that `ws.readyState === WebSocket.OPEN` before starting simulation.
 
 ### — END PROMPT 3 —
 
@@ -278,58 +385,92 @@ If you only get one shot (or want the fastest possible demo), use this single pr
 
 ### — MEGA PROMPT — Copy below this line —
 
-Create `public/display.html` — a full-screen, dark-themed real-time Q&A visualization called "TownTalk". This is a single self-contained HTML file for projector display at a live event.
+Create `public/display.html` — a full-screen, dark-themed real-time Q&A visualization called "TownTalk". Single self-contained HTML file, all CSS and JS inline, for a 1920x1080 projector.
 
-**Server Protocol:**
-A WebSocket server runs on the same host. Connect to `ws://` + `location.host`. On connect, send `{ "type": "join", "role": "display", "clientId": "display-main" }`. The server sends state updates as:
+**CDN scripts (load in head):**
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+```
+
+**WebSocket protocol:**
+Connect with: `new WebSocket('ws://' + location.host)` — use `ws://` not `wss://`, use `location.host` not `localhost`.
+On open send: `{ "type": "join", "role": "display", "clientId": "display-main" }`
+Server pushes state updates as:
 ```json
-{ "type": "state", "questions": [{"id":"q1","text":"Question text","votes":5,"timestamp":1707600000}], "stats": {"totalQuestions":7,"totalVotes":42,"connectedUsers":3} }
+{
+  "type": "state",
+  "questions": [{ "id": "q1", "text": "Question text", "votes": 5, "timestamp": 1707600000 }],
+  "stats": { "totalQuestions": 7, "totalVotes": 42, "connectedUsers": 3 }
+}
 ```
 To submit: `{ "type": "submit", "text": "...", "clientId": "..." }`
 To upvote: `{ "type": "upvote", "questionId": "q1", "clientId": "unique-id" }`
 To reset: `{ "type": "reset" }`
+Auto-reconnect with 2s `setInterval` on close.
 
-**Visual Design:**
-- Deep dark background (#07070f) with a subtle starfield (canvas layer, ~120 twinkling dots using sin-wave alpha animation)
-- Use D3.js v7 from cdnjs CDN for force-directed bubble layout
-- Each question = floating SVG circle + foreignObject for wrapped white text + a small vote-count badge circle at top-right
-- Bubble radius = `min(130, 36 + sqrt(votes) * 14)`. D3 forces: center gravity, collision, charge repulsion. Higher-vote bubbles pulled more toward center.
-- Color tiers by votes: 0-4 indigo (#6366f1), 5-14 light indigo (#818cf8), 15-29 amber (#f59e0b), 30-49 gold (#fbbf24), 50+ pink (#f472b6)
-- SVG glow filters per tier (feGaussianBlur + feFlood + feMerge). Stronger glow for higher tiers.
-- New bubbles animate in with elastic scale (r: 0 → full). Removed bubbles fade+shrink out.
-- Popular bubbles (25+ votes) have a pulsing stroke-opacity animation.
+**HTML structure (layer order is critical):**
+```html
+<canvas id="starfield"></canvas>  <!-- z-index: 0, position: fixed, inset: 0 -->
+<svg id="viz">
+  <defs><!-- 5 glow filters: glow-0 through glow-4 --></defs>
+</svg>                             <!-- z-index: 1, position: fixed, inset: 0 -->
+<div id="stats-bar">...</div>     <!-- z-index: 10 -->
+<!-- spotlight overlay z-index: 50, QR overlay z-index: 100 -->
+```
 
-**Stats Bar (fixed top):**
-- Left: "TownTalk" logo with a gradient purple icon
-- Right: animated counters for Questions, Votes, Connected users + a "Join" button
-- Semi-transparent gradient background fading to transparent
+**CRITICAL SVG SETUP:**
+The `<svg id="viz">` MUST have `position: fixed; inset: 0;` in CSS, AND you MUST set width/height attributes in JS:
+```js
+const svg = d3.select('#viz');
+svg.attr('width', window.innerWidth).attr('height', window.innerHeight);
+// Update on window resize too!
+```
+Without this, bubbles render but are invisible (SVG has zero dimensions). Append a `<g>` group: `const g = svg.append('g');` — all bubbles live here.
 
-**Spotlight Mode:**
-- Click any bubble → full-screen overlay with blurred dark backdrop
-- Centered glass-morphism card: question text at 40px, vote count in large gradient text, close button
-- Spring-in animation. Escape or click-outside to close. Vote count updates live.
+**SVG Glow Filters (in `<defs>`):**
+5 filters (glow-0 through glow-4), each: feGaussianBlur → feFlood → feComposite(in) → feMerge. Increasing stdDeviation (6,8,10,12,14) and flood-opacity (0.35→0.55). Colors match tiers below.
 
-**QR Code Overlay:**
-- Press Q to toggle. Fetches server URL from `/api/info` endpoint (returns `{ "url": "https://abc.ngrok.io", "tunnelUrl": "https://abc.ngrok.io", "localUrl": "http://192.168.1.5:3000" }`). Use the `url` field — it's the public tunnel URL if active, otherwise the local IP.
-- Generate QR code using qrcodejs from cdnjs pointing to `{url}/mobile.html`
-- Shows "Join TownTalk" title, scan instruction, URL in monospace
-- Below URL: show "🌐 Public URL — works from any network" (green) if `tunnelUrl` exists, else "📡 Local network only" (amber)
-- Poll `/api/info` every 5 seconds; auto-regenerate QR if URL changes (tunnel may start after page loads)
+**D3 Force Simulation:**
+```js
+let nodes = [];
+const simulation = d3.forceSimulation(nodes)
+  .force('center', d3.forceCenter(W / 2, H / 2))
+  .force('charge', d3.forceManyBody().strength(-80))
+  .force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9))
+  .force('x', d3.forceX(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .force('y', d3.forceY(H / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .alphaDecay(0.015).velocityDecay(0.35)
+  .on('tick', () => { g.selectAll('.bubble').attr('transform', d => `translate(${d.x},${d.y})`); });
+```
 
-**Simulation Mode:**
-- Press S to toggle. Shows orange "Simulation Mode" banner.
-- Every 400ms: 30% chance to submit a new fake question (from a list of 10 workplace-themed questions), 70% chance to upvote a random existing question (weighted toward popular ones). Each upvote uses a unique random clientId.
+**Bubble radius:** `Math.min(130, 36 + Math.sqrt(votes) * 14)`
+**Color tiers:** 0–4: #6366f1/glow-0, 5–14: #818cf8/glow-1, 15–29: #f59e0b/glow-2, 30–49: #fbbf24/glow-3, 50+: #f472b6/glow-4
 
-**Keyboard Shortcuts:**
-- Q: toggle QR overlay
-- S: toggle simulation
-- F: toggle fullscreen
-- R: reset questions (when overlays are closed)
-- Escape: close spotlight or QR
+**Rendering (D3 data join):**
+On each state message, update `nodes` (preserve existing x/y/vx/vy, only change votes/text), then:
+- `g.selectAll('.bubble').data(nodes, d => d.id)` — key by id
+- EXIT: `.exit().transition(400).style('opacity',0).remove()`
+- ENTER: `.enter().append('g').attr('class','bubble')` starting at `scale(0), opacity 0`
+  - Each group gets: `<circle>` (fill-opacity 0.18, stroke, glow filter), `<foreignObject>` with `<xhtml:div class="bubble-text">` for wrapped text, and a vote badge (small circle + text) at top-right
+  - Animate in: `.transition(800).ease(d3.easeElasticOut.amplitude(1).period(0.4)).attr('transform', d => translate+scale(1)).style('opacity',1)`
+- MERGE: update radius, colors, filters, text, badge for existing bubbles
+- Restart: `simulation.nodes(nodes); simulation.alpha(0.4).restart();`
 
-**Hint bar** at the bottom: small pill with faint text listing shortcuts.
+**Background starfield:** Canvas behind SVG, ~120 twinkling stars using `requestAnimationFrame` + sin-wave alpha. Resize on window resize.
 
-Auto-reconnect WebSocket every 2 seconds. Preserve existing bubble positions on state update. All CSS and JS inline. Target 1920x1080 projector.
+**Stats bar (fixed top):** Gradient fade background. Left: "TownTalk" + purple gradient icon. Right: animated stat counters (Questions, Votes, Connected) + "Join" button → `/mobile.html`.
+
+**Spotlight mode:** Click bubble → full-screen overlay (z-index 50), blurred backdrop, centered glass card with question text (40px), vote count (64px, gradient text), close button. Spring animation. Escape/click-outside closes. Vote count updates live from state messages.
+
+**QR overlay:** Press Q → overlay (z-index 100). Fetch `GET /api/info` → `{ url, tunnelUrl, localUrl }`. Generate QR for `info.url + '/mobile.html'` using `new QRCode(container, { text, width:220, height:220 })`. Show title "Join TownTalk", URL, tunnel badge (green if tunnelUrl, amber otherwise). Poll `/api/info` every 5s, regenerate QR if URL changes.
+
+**Simulation:** Press S toggles. Every 400ms: 30% submit fake question (`{ type:'submit', text:'...', clientId:'sim-'+random }`), 70% upvote random existing (`{ type:'upvote', questionId:node.id, clientId:'sim-'+random }`). Orange banner visible when active. 10 sample workplace questions hardcoded.
+
+**Keyboard:** Q=QR, S=simulate, F=fullscreen, R=reset, Escape=close overlays.
+**Hint bar:** Fixed bottom center, faint text listing shortcuts.
+
+**CSS key points:** body `background:#07070f; overflow:hidden; 100vw×100vh`. `.bubble-text`: white, 13px, centered, word-break, text-shadow. All numbers: `font-variant-numeric: tabular-nums`.
 
 ### — END MEGA PROMPT —
 
