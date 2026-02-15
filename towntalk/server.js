@@ -186,6 +186,95 @@ function createWSClient(socket) {
   return client;
 }
 
+// ─── Waiting Room (shown before display.html is live-coded) ──
+const WAITING_ROOM_HTML = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TownTalk — Scan to Join</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070f;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden}
+canvas#starfield{position:fixed;inset:0;z-index:0}
+.card{position:relative;z-index:1;text-align:center;background:rgba(17,24,39,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:48px 56px;backdrop-filter:blur(20px);max-width:480px}
+.logo{font-size:48px;margin-bottom:8px}
+h1{font-size:32px;font-weight:700;margin-bottom:6px;background:linear-gradient(135deg,#818cf8,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:#94a3b8;font-size:16px;margin-bottom:32px}
+#qr-container{display:inline-block;background:#fff;border-radius:16px;padding:16px;margin-bottom:20px}
+.url{font-family:monospace;font-size:14px;color:#94a3b8;word-break:break-all;margin-bottom:16px}
+.badge{display:inline-block;font-size:12px;padding:4px 12px;border-radius:20px;margin-bottom:16px}
+.badge.tunnel{background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)}
+.badge.local{background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)}
+.hint{color:#64748b;font-size:13px;margin-top:8px}
+.stats{position:fixed;bottom:24px;z-index:1;display:flex;gap:24px;font-size:14px;color:#64748b}
+.stats span{color:#e2e8f0;font-weight:600;font-variant-numeric:tabular-nums}
+.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+</style></head><body>
+<canvas id="starfield"></canvas>
+<div class="card">
+  <div class="logo">💬</div>
+  <h1>TownTalk</h1>
+  <p class="subtitle">Scan to join the live Q&A</p>
+  <div id="qr-container"></div>
+  <div id="url-display" class="url">Loading...</div>
+  <div id="badge-display"></div>
+  <p class="hint">Waiting for the show to start...</p>
+</div>
+<div class="stats"><div><span class="pulse"></span>LIVE</div><div>Connected: <span id="user-count">0</span></div></div>
+<script>
+// Starfield
+const c=document.getElementById('starfield'),ctx=c.getContext('2d');
+let stars=[];
+function resizeCanvas(){c.width=innerWidth;c.height=innerHeight;stars=Array.from({length:100},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.3,speed:Math.random()*0.4+0.1,phase:Math.random()*Math.PI*2}))}
+resizeCanvas();window.addEventListener('resize',resizeCanvas);
+function drawStars(t){ctx.clearRect(0,0,c.width,c.height);stars.forEach(s=>{const a=0.25+0.55*(0.5+0.5*Math.sin(t*0.001*s.speed+s.phase));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,'+a+')';ctx.fill()});requestAnimationFrame(drawStars)}
+requestAnimationFrame(drawStars);
+
+// QR code + polling
+let currentUrl='';
+async function refreshQR(){
+  try{
+    const r=await fetch('/api/info');
+    const info=await r.json();
+    const mobileUrl=info.url+'/mobile.html';
+    document.getElementById('url-display').textContent=mobileUrl;
+    const badge=document.getElementById('badge-display');
+    badge.innerHTML=info.tunnelUrl?'<div class="badge tunnel">🌐 Public URL — anyone can join</div>':'<div class="badge local">📡 Local network only</div>';
+    if(mobileUrl!==currentUrl){
+      currentUrl=mobileUrl;
+      const container=document.getElementById('qr-container');
+      container.innerHTML='';
+      new QRCode(container,{text:mobileUrl,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    }
+  }catch(e){console.warn('Failed to fetch /api/info',e)}
+}
+refreshQR();
+setInterval(refreshQR,5000);
+
+// WebSocket for audience count
+let ws;
+function connectWS(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+  ws.onopen=()=>ws.send(JSON.stringify({type:'join',role:'display',clientId:'waiting-room'}));
+  ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state'&&m.stats)document.getElementById('user-count').textContent=m.stats.connectedUsers}catch(ex){}};
+  ws.onclose=()=>setTimeout(connectWS,2000);
+}
+connectWS();
+
+// Auto-refresh when display.html appears (check every 3s)
+setInterval(async()=>{
+  try{
+    const r=await fetch('/display.html',{method:'HEAD'});
+    const ct=r.headers.get('content-type')||'';
+    // The waiting room is ~4KB, a real display.html will be much larger
+    const cl=parseInt(r.headers.get('content-length')||'0',10);
+    if(r.ok&&cl>10000)location.reload();
+  }catch(e){}
+},3000);
+<\/script>
+</body></html>`;
+
 // ─── HTTP Server ─────────────────────────────────────────────
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -256,6 +345,12 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      // If display.html doesn't exist yet, serve a built-in waiting room with QR code
+      if (urlPath === '/' || urlPath === '/display.html') {
+        res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' });
+        res.end(WAITING_ROOM_HTML);
+        return;
+      }
       res.writeHead(404);
       res.end('Not found');
       return;

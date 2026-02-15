@@ -320,6 +320,72 @@ function broadcastDashboard() {
   }
 }
 
+// ─── Waiting Room (shown before display.html is live-coded) ──
+const SC_WAITING_ROOM_HTML = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Station Command — Scan to Vote</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden}
+.card{text-align:center;background:rgba(17,24,39,0.9);border:1px solid #1e293b;border-radius:24px;padding:48px 56px;max-width:480px}
+.logo{font-size:48px;margin-bottom:8px}
+h1{font-size:32px;font-weight:700;margin-bottom:6px;color:#e2e8f0}
+.subtitle{color:#94a3b8;font-size:16px;margin-bottom:32px}
+#qr-container{display:inline-block;background:#fff;border-radius:16px;padding:16px;margin-bottom:20px}
+.url{font-family:monospace;font-size:14px;color:#94a3b8;word-break:break-all;margin-bottom:16px}
+.badge{display:inline-block;font-size:12px;padding:4px 12px;border-radius:20px;margin-bottom:16px}
+.badge.tunnel{background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)}
+.badge.local{background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)}
+.hint{color:#64748b;font-size:13px;margin-top:8px}
+.stats{position:fixed;bottom:24px;display:flex;gap:24px;font-size:14px;color:#64748b}
+.stats span{color:#e2e8f0;font-weight:600;font-variant-numeric:tabular-nums}
+.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+</style></head><body>
+<div class="card">
+  <div class="logo">⛽</div>
+  <h1>Station Command</h1>
+  <p class="subtitle">Scan to vote on features</p>
+  <div id="qr-container"></div>
+  <div id="url-display" class="url">Loading...</div>
+  <div id="badge-display"></div>
+  <p class="hint">Waiting for the dashboard to be built live...</p>
+</div>
+<div class="stats"><div><span class="pulse"></span>LIVE</div><div>Connected: <span id="user-count">0</span></div></div>
+<script>
+let currentUrl='';
+async function refreshQR(){
+  try{
+    const r=await fetch('/api/info');
+    const info=await r.json();
+    const mobileUrl=info.url+'/mobile.html';
+    document.getElementById('url-display').textContent=mobileUrl;
+    const badge=document.getElementById('badge-display');
+    badge.innerHTML=info.tunnelUrl?'<div class="badge tunnel">🌐 Public URL — anyone can join</div>':'<div class="badge local">📡 Local network only</div>';
+    if(mobileUrl!==currentUrl){
+      currentUrl=mobileUrl;
+      const container=document.getElementById('qr-container');
+      container.innerHTML='';
+      new QRCode(container,{text:mobileUrl,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    }
+  }catch(e){console.warn('Failed to fetch /api/info',e)}
+}
+refreshQR();setInterval(refreshQR,5000);
+let ws;
+function connectWS(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+  ws.onopen=()=>ws.send(JSON.stringify({type:'join',role:'display',clientId:'waiting-room'}));
+  ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='dashboard'&&m.stats)document.getElementById('user-count').textContent=m.stats.connectedUsers}catch(ex){}};
+  ws.onclose=()=>setTimeout(connectWS,2000);
+}
+connectWS();
+// Auto-refresh when display.html is created
+setInterval(async()=>{try{const r=await fetch('/display.html',{method:'HEAD'});const cl=parseInt(r.headers.get('content-length')||'0',10);if(r.ok&&cl>10000)location.reload()}catch(e){}},3000);
+<\/script>
+</body></html>`;
+
 // ─── HTTP Server ─────────────────────────────────────────────
 const MIME_TYPES = {
   '.html': 'text/html', '.js': 'application/javascript',
@@ -374,7 +440,15 @@ const server = http.createServer((req, res) => {
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
   fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); return; }
+    if (err) {
+      // If display.html doesn't exist yet, serve built-in waiting room with QR code
+      if (urlPath === '/' || urlPath === '/display.html') {
+        res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' });
+        res.end(SC_WAITING_ROOM_HTML);
+        return;
+      }
+      res.writeHead(404); res.end('Not found'); return;
+    }
     res.writeHead(200, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
     res.end(data);
   });
