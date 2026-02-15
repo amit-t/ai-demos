@@ -1,11 +1,3 @@
-# Prompt 1 — The Foundation
-
-## What to Say (before pasting)
-
-> "First, let me describe what I want the visualization to look like."
-
-## The Prompt
-
 Create a file `public/display.html` — a full-screen, dark-themed real-time visualization for a live Q&A app called "TownTalk". This MUST be a single self-contained HTML file with all CSS and JS inline — no external files except the CDN script below.
 
 **CDN (load in a script tag in head):**
@@ -135,9 +127,3 @@ simulation.alpha(0.4).restart();
 **CSS:** `.bubble-text` class: `color: #fff; font-size: 13px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; word-break: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.5);`
 
 Body: `background: #07070f; overflow: hidden; width: 100vw; height: 100vh;`
-
----
-
-## What to Say (after it generates)
-
-> "And just like that, we have a real-time visualization. Those are seed questions I preloaded. Let me make it more interactive."
