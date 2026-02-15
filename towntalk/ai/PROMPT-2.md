@@ -1,11 +1,3 @@
-# Prompt 2 — Spotlight + QR Code
-
-## What to Say (before pasting)
-
-> "I want to be able to click a question to zoom in on it. And I need a way for you all to join."
-
-## The Prompt
-
 Add two features to `public/display.html`. Add the QRCode.js CDN in the `<head>`:
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -41,9 +33,3 @@ Add two features to `public/display.html`. Add the QRCode.js CDN in the `<head>`
 **3. Hint bar:** At the very bottom of the screen, a small pill-shaped `<div>` with `position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); opacity: 0.4; font-size: 12px;` saying "Click any bubble to spotlight · Press Q for QR code · Press S to simulate"
 
 **Keyboard shortcuts:** Q = toggle QR, Escape = close QR or spotlight, F = toggle fullscreen, R = send `{ "type": "reset" }` to WebSocket.
-
----
-
-## What to Say (after it generates)
-
-> "Now before I open this up to all of you, let me show you what it looks like with lots of activity."

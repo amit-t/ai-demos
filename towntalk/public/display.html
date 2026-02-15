@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TownTalk</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #07070f;
+      color: #fff;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      cursor: default;
+      user-select: none;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    #viz {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #stats-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: linear-gradient(180deg, rgba(7, 7, 15, 0.92) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    #stats-bar>* {
+      pointer-events: auto;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .stats-group {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, #e2e8f0, #fff);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 2px;
+    }
+
+    .join-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      text-decoration: none;
+    }
+
+    .join-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .bubble-text {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      word-break: break-word;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      height: 100%;
+      padding: 4px;
+      line-height: 1.3;
+      overflow: hidden;
+    }
+
+    #empty-state {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    #empty-state.visible {
+      opacity: 1;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .empty-text {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.25);
+      font-weight: 400;
+    }
+
+    /* ─── Spotlight Overlay ─── */
+    #spotlight {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 7, 15, 0.85);
+      backdrop-filter: blur(20px);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #spotlight.visible {
+      display: flex;
+      opacity: 1;
+    }
+
+    .spotlight-card {
+      max-width: 800px;
+      width: 90%;
+      padding: 56px 64px;
+      background: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      text-align: center;
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    #spotlight.visible .spotlight-card {
+      transform: scale(1);
+    }
+
+    .spotlight-question {
+      font-size: 38px;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: -0.5px;
+      margin-bottom: 32px;
+    }
+
+    .spotlight-votes {
+      font-size: 64px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+
+    .spotlight-votes-label {
+      font-size: 16px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 8px;
+    }
+
+    .spotlight-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.5);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .spotlight-close:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    /* ─── QR Overlay ─── */
+    #qr-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 7, 15, 0.92);
+      backdrop-filter: blur(30px);
+    }
+
+    #qr-overlay.visible {
+      display: flex;
+    }
+
+    .qr-container {
+      text-align: center;
+      animation: qrIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes qrIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .qr-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .qr-subtitle {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 40px;
+    }
+
+    #qr-code {
+      display: inline-block;
+      padding: 24px;
+      background: #fff;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+
+    #qr-code canvas,
+    #qr-code img {
+      display: block;
+    }
+
+    .qr-url {
+      font-size: 18px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      letter-spacing: 0.5px;
+    }
+
+    .qr-badge {
+      margin-top: 16px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .qr-close-hint {
+      margin-top: 32px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ─── Hint Bar ─── */
+    #hint-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      opacity: 0.4;
+      font-size: 12px;
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 100px;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Background Canvas (starfield) -->
+  <canvas id="starfield"></canvas>
+
+  <!-- Bubble SVG -->
+  <svg id="viz">
+    <defs>
+      <filter id="glow-0" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+        <feFlood flood-color="#6366f1" flood-opacity="0.35" result="color" />
+        <feComposite in="color" in2="blur" operator="in" result="shadow" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="glow-1" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+        <feFlood flood-color="#818cf8" flood-opacity="0.40" result="color" />
+        <feComposite in="color" in2="blur" operator="in" result="shadow" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="glow-2" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+        <feFlood flood-color="#f59e0b" flood-opacity="0.45" result="color" />
+        <feComposite in="color" in2="blur" operator="in" result="shadow" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="glow-3" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
+        <feFlood flood-color="#fbbf24" flood-opacity="0.50" result="color" />
+        <feComposite in="color" in2="blur" operator="in" result="shadow" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="glow-4" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur" />
+        <feFlood flood-color="#f472b6" flood-opacity="0.55" result="color" />
+        <feComposite in="color" in2="blur" operator="in" result="shadow" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Stats Bar -->
+  <div id="stats-bar">
+    <div class="logo">
+      <div class="logo-icon">💬</div>
+      TownTalk
+    </div>
+    <div class="stats-group">
+      <div class="stat">
+        <div class="stat-value" id="stat-questions">0</div>
+        <div class="stat-label">Questions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-votes">0</div>
+        <div class="stat-label">Votes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-users">0</div>
+        <div class="stat-label">Connected</div>
+      </div>
+      <a class="join-btn" href="/mobile.html" target="_blank">
+        <span>📱</span> Join
+      </a>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div id="empty-state" class="visible">
+    <div class="empty-icon">💬</div>
+    <div class="empty-text">Waiting for questions…</div>
+  </div>
+
+  <!-- Spotlight Overlay -->
+  <div id="spotlight" onclick="closeSpotlight()">
+    <div class="spotlight-card" onclick="event.stopPropagation()">
+      <button class="spotlight-close" onclick="closeSpotlight()">✕</button>
+      <div class="spotlight-question" id="spotlight-text"></div>
+      <div class="spotlight-votes" id="spotlight-votes">0</div>
+      <div class="spotlight-votes-label">votes</div>
+    </div>
+  </div>
+
+  <!-- QR Overlay -->
+  <div id="qr-overlay" onclick="toggleQR()">
+    <div class="qr-container" onclick="event.stopPropagation()">
+      <div class="qr-title">Join TownTalk</div>
+      <div class="qr-subtitle">Scan with your phone camera to ask questions and vote</div>
+      <div id="qr-code"></div>
+      <div class="qr-url" id="qr-url"></div>
+      <div class="qr-badge" id="qr-badge"></div>
+      <div class="qr-close-hint">Press Q or click outside to close</div>
+    </div>
+  </div>
+
+  <!-- Hint Bar -->
+  <div id="hint-bar">Click any bubble to spotlight · Press Q for QR code · Press S to simulate</div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // STARFIELD BACKGROUND
+    // ═══════════════════════════════════════════════════════════════
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function initStarfield() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      stars = Array.from({ length: 120 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2 + 0.3,
+        speed: Math.random() * 0.003 + 0.001,
+        phase: Math.random() * Math.PI * 2,
+      }));
+    }
+
+    function drawStarfield(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const grad = ctx.createRadialGradient(
+        canvas.width * 0.5, canvas.height * 0.5, 0,
+        canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.7
+      );
+      grad.addColorStop(0, '#0d0d2b');
+      grad.addColorStop(1, '#07070f');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (const s of stars) {
+        const alpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 190, 255, ${alpha})`;
+        ctx.fill();
+      }
+      requestAnimationFrame(drawStarfield);
+    }
+
+    initStarfield();
+    requestAnimationFrame(drawStarfield);
+
+    // ═══════════════════════════════════════════════════════════════
+    // D3 BUBBLE VISUALIZATION
+    // ═══════════════════════════════════════════════════════════════
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+
+    const svg = d3.select('#viz');
+    svg.attr('width', W).attr('height', H);
+    const g = svg.append('g');
+
+    // Bubble helpers
+    function getRadius(votes) {
+      return Math.min(130, 36 + Math.sqrt(votes) * 14);
+    }
+
+    const TIER_COLORS = [ '#6366f1', '#818cf8', '#f59e0b', '#fbbf24', '#f472b6' ];
+    const TIER_MINS = [ 0, 5, 15, 30, 50 ];
+
+    function getTierIndex(votes) {
+      let idx = 0;
+      for (let i = TIER_MINS.length - 1; i >= 0; i--) {
+        if (votes >= TIER_MINS[ i ]) { idx = i; break; }
+      }
+      return idx;
+    }
+
+    function getTierColor(votes) {
+      return TIER_COLORS[ getTierIndex(votes) ];
+    }
+
+    function getTierGlow(votes) {
+      return `url(#glow-${getTierIndex(votes)})`;
+    }
+
+    // Force simulation
+    let nodes = [];
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('center', d3.forceCenter(W / 2, H / 2))
+      .force('charge', d3.forceManyBody().strength(-80))
+      .force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9))
+      .force('x', d3.forceX(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+      .force('y', d3.forceY(H / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+      .alphaDecay(0.015)
+      .velocityDecay(0.35)
+      .on('tick', () => {
+        g.selectAll('.bubble').attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+    // ═══════════════════════════════════════════════════════════════
+    // RENDER FROM STATE
+    // ═══════════════════════════════════════════════════════════════
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderBubbles(questions) {
+      // Build a map of existing nodes by id to preserve positions
+      const existingMap = new Map(nodes.map(n => [ n.id, n ]));
+
+      // Update nodes array in-place
+      const newIds = new Set(questions.map(q => q.id));
+
+      // Remove nodes that no longer exist
+      nodes = nodes.filter(n => newIds.has(n.id));
+
+      // Update existing + add new
+      for (const q of questions) {
+        const existing = existingMap.get(q.id);
+        if (existing) {
+          existing.votes = q.votes;
+          existing.text = q.text;
+        } else {
+          nodes.push({
+            id: q.id,
+            text: q.text,
+            votes: q.votes,
+            x: W / 2 + (Math.random() - 0.5) * 200,
+            y: H / 2 + (Math.random() - 0.5) * 200,
+          });
+        }
+      }
+
+      // D3 data join
+      const bubbles = g.selectAll('.bubble').data(nodes, d => d.id);
+
+      // EXIT
+      bubbles.exit().transition().duration(400).style('opacity', 0).remove();
+
+      // ENTER
+      const enter = bubbles.enter().append('g').attr('class', 'bubble')
+        .attr('transform', d => `translate(${d.x},${d.y}) scale(0)`)
+        .style('opacity', 0);
+
+      enter.append('circle')
+        .attr('r', d => getRadius(d.votes))
+        .attr('fill', d => getTierColor(d.votes))
+        .attr('fill-opacity', 0.18)
+        .attr('stroke', d => getTierColor(d.votes))
+        .attr('stroke-width', 1.5)
+        .attr('filter', d => getTierGlow(d.votes));
+
+      enter.append('foreignObject')
+        .attr('x', d => -getRadius(d.votes) * 0.7)
+        .attr('y', d => -getRadius(d.votes) * 0.7)
+        .attr('width', d => getRadius(d.votes) * 1.4)
+        .attr('height', d => getRadius(d.votes) * 1.4)
+        .append('xhtml:div')
+        .attr('class', 'bubble-text')
+        .text(d => d.text);
+
+      // Vote badge
+      enter.append('circle')
+        .attr('class', 'badge-bg')
+        .attr('cx', d => getRadius(d.votes) * 0.6)
+        .attr('cy', d => -getRadius(d.votes) * 0.6)
+        .attr('r', 14)
+        .attr('fill', 'rgba(0,0,0,0.5)')
+        .attr('stroke', 'rgba(255,255,255,0.15)')
+        .attr('stroke-width', 1);
+
+      enter.append('text')
+        .attr('class', 'badge-text')
+        .attr('x', d => getRadius(d.votes) * 0.6)
+        .attr('y', d => -getRadius(d.votes) * 0.6)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'central')
+        .attr('fill', '#fff')
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .attr('font-family', 'Inter, sans-serif')
+        .text(d => d.votes);
+
+      // Animate entrance
+      enter.transition().duration(800)
+        .ease(d3.easeElasticOut.amplitude(1).period(0.4))
+        .attr('transform', d => `translate(${d.x},${d.y}) scale(1)`)
+        .style('opacity', 1);
+
+      // MERGE — update existing
+      const merged = enter.merge(bubbles);
+
+      merged.style('cursor', 'pointer').on('click', (event, d) => openSpotlight(d));
+
+      merged.select('circle:first-child')
+        .transition().duration(400)
+        .attr('r', d => getRadius(d.votes))
+        .attr('fill', d => getTierColor(d.votes))
+        .attr('stroke', d => getTierColor(d.votes))
+        .attr('filter', d => getTierGlow(d.votes));
+
+      merged.select('foreignObject')
+        .attr('x', d => -getRadius(d.votes) * 0.7)
+        .attr('y', d => -getRadius(d.votes) * 0.7)
+        .attr('width', d => getRadius(d.votes) * 1.4)
+        .attr('height', d => getRadius(d.votes) * 1.4)
+        .select('.bubble-text')
+        .text(d => d.text);
+
+      merged.select('.badge-bg')
+        .attr('cx', d => getRadius(d.votes) * 0.6)
+        .attr('cy', d => -getRadius(d.votes) * 0.6);
+
+      merged.select('.badge-text')
+        .attr('x', d => getRadius(d.votes) * 0.6)
+        .attr('y', d => -getRadius(d.votes) * 0.6)
+        .text(d => d.votes);
+
+      // Restart simulation
+      simulation.nodes(nodes);
+      simulation.force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9));
+      simulation.alpha(0.4).restart();
+
+      // Empty state
+      const emptyEl = document.getElementById('empty-state');
+      if (nodes.length === 0) {
+        emptyEl.classList.add('visible');
+      } else {
+        emptyEl.classList.remove('visible');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATS BAR — ANIMATED COUNTERS
+    // ═══════════════════════════════════════════════════════════════
+    const statEls = {
+      totalQuestions: document.getElementById('stat-questions'),
+      totalVotes: document.getElementById('stat-votes'),
+      connectedUsers: document.getElementById('stat-users'),
+    };
+    const statCurrent = { totalQuestions: 0, totalVotes: 0, connectedUsers: 0 };
+    const statTarget = { totalQuestions: 0, totalVotes: 0, connectedUsers: 0 };
+    let statAnimating = false;
+
+    function updateStats(stats) {
+      statTarget.totalQuestions = stats.totalQuestions || 0;
+      statTarget.totalVotes = stats.totalVotes || 0;
+      statTarget.connectedUsers = stats.connectedUsers || 0;
+      if (!statAnimating) animateStats();
+    }
+
+    function animateStats() {
+      let done = true;
+      for (const key of Object.keys(statCurrent)) {
+        if (statCurrent[ key ] !== statTarget[ key ]) {
+          done = false;
+          const diff = statTarget[ key ] - statCurrent[ key ];
+          const step = diff > 0 ? Math.max(1, Math.ceil(diff / 8)) : Math.min(-1, Math.floor(diff / 8));
+          statCurrent[ key ] += step;
+          if ((diff > 0 && statCurrent[ key ] > statTarget[ key ]) ||
+            (diff < 0 && statCurrent[ key ] < statTarget[ key ])) {
+            statCurrent[ key ] = statTarget[ key ];
+          }
+          statEls[ key ].textContent = statCurrent[ key ];
+        }
+      }
+      if (!done) {
+        statAnimating = true;
+        requestAnimationFrame(animateStats);
+      } else {
+        statAnimating = false;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SPOTLIGHT
+    // ═══════════════════════════════════════════════════════════════
+    let spotlightId = null;
+
+    function openSpotlight(d) {
+      spotlightId = d.id;
+      document.getElementById('spotlight-text').textContent = d.text;
+      document.getElementById('spotlight-votes').textContent = d.votes;
+      const el = document.getElementById('spotlight');
+      el.style.display = 'flex';
+      requestAnimationFrame(() => el.classList.add('visible'));
+    }
+
+    function closeSpotlight() {
+      spotlightId = null;
+      const el = document.getElementById('spotlight');
+      el.classList.remove('visible');
+      setTimeout(() => { el.style.display = 'none'; }, 300);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // QR CODE OVERLAY
+    // ═══════════════════════════════════════════════════════════════
+    let qrVisible = false;
+    let lastQRUrl = '';
+
+    async function generateQR() {
+      try {
+        const res = await fetch('/api/info');
+        const info = await res.json();
+        const mobileUrl = info.url + '/mobile.html';
+
+        if (mobileUrl === lastQRUrl) return;
+        lastQRUrl = mobileUrl;
+
+        document.getElementById('qr-code').innerHTML = '';
+        new QRCode(document.getElementById('qr-code'), {
+          text: mobileUrl,
+          width: 220,
+          height: 220,
+          colorDark: '#000',
+          colorLight: '#fff',
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+
+        document.getElementById('qr-url').textContent = mobileUrl;
+
+        const badge = document.getElementById('qr-badge');
+        if (info.tunnelUrl) {
+          badge.textContent = '🌐 Public URL — works from any network';
+          badge.style.color = 'rgba(34, 197, 94, 0.7)';
+        } else {
+          badge.textContent = '📡 Local network only — same WiFi required';
+          badge.style.color = 'rgba(251, 191, 36, 0.7)';
+        }
+      } catch (e) {
+        document.getElementById('qr-url').textContent = 'Could not detect network address';
+      }
+    }
+
+    function toggleQR() {
+      qrVisible = !qrVisible;
+      const el = document.getElementById('qr-overlay');
+      if (qrVisible) {
+        generateQR();
+        el.classList.add('visible');
+      } else {
+        el.classList.remove('visible');
+      }
+    }
+
+    // Poll for URL changes every 5 seconds
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/info');
+        const info = await res.json();
+        const newUrl = info.url + '/mobile.html';
+        if (newUrl !== lastQRUrl && lastQRUrl !== '') {
+          lastQRUrl = '';
+          generateQR();
+        }
+      } catch (e) { /* ignore */ }
+    }, 5000);
+
+    // ═══════════════════════════════════════════════════════════════
+    // KEYBOARD SHORTCUTS
+    // ═══════════════════════════════════════════════════════════════
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'q' || e.key === 'Q') toggleQR();
+      if (e.key === 'Escape') {
+        if (qrVisible) toggleQR();
+        else closeSpotlight();
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        if (!qrVisible && !spotlightId && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'reset' }));
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // RESIZE HANDLER
+    // ═══════════════════════════════════════════════════════════════
+    window.addEventListener('resize', () => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      initStarfield();
+      svg.attr('width', W).attr('height', H);
+      simulation.force('center', d3.forceCenter(W / 2, H / 2));
+      simulation.force('x', d3.forceX(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)));
+      simulation.force('y', d3.forceY(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)));
+      simulation.alpha(0.3).restart();
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // WEBSOCKET CONNECTION
+    // ═══════════════════════════════════════════════════════════════
+    let ws;
+    let reconnectTimer;
+
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}`);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', role: 'display', clientId: 'display-main' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'state') {
+            renderBubbles(msg.questions);
+            updateStats(msg.stats);
+            // Update spotlight if open
+            if (spotlightId) {
+              const q = msg.questions.find(q => q.id === spotlightId);
+              if (q) {
+                document.getElementById('spotlight-votes').textContent = q.votes;
+              }
+            }
+          }
+        } catch (e) { /* ignore parse errors */ }
+      };
+
+      ws.onclose = () => {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+  </script>
+</body>
+
+</html>

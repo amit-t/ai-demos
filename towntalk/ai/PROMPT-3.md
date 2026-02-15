@@ -1,11 +1,3 @@
-# Prompt 3 — Simulation Mode
-
-## What to Say (before pasting)
-
-> "Now before I open this up to all of you, let me show you what it looks like with lots of activity."
-
-## The Prompt
-
 Add a simulation mode to `public/display.html`:
 
 - Add a boolean `let simulating = false;` and a timer variable `let simTimer = null;`
@@ -20,13 +12,3 @@ Add a simulation mode to `public/display.html`:
   - **70% chance — upvote a random question:** Pick a random question from the current `nodes` array (you can weight toward popular ones by using `Math.random() * Math.random()` as index). Send `{ "type": "upvote", "questionId": node.id, "clientId": "sim-" + Math.random().toString(36).slice(2,8) }`. The unique clientId ensures the server doesn't block it as a duplicate vote.
 
 - Make sure the S key handler checks that `ws.readyState === WebSocket.OPEN` before starting simulation.
-
----
-
-## What to Say (after it generates)
-
-*Press S to start simulation, let it run for ~30 seconds, then:*
-
-> "Okay, that's simulated data. Let's do it for real. Take out your phones."
-
-*Then press S to stop, R to reset, Q to show QR code.*
