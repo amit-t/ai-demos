@@ -182,7 +182,7 @@ push_tunnel_url() {
   echo ""
 }
 
-start_tunnel
+start_tunnel || true
 
 # ─── Keep alive ──────────────────────────────────────────────
 echo "  Press Ctrl+C to stop everything."
