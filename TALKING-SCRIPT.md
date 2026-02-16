@@ -1,5 +1,3 @@
-
-
 > Hey everyone — thanks for joining in. 
 
 ### 
@@ -7,7 +5,7 @@ I don't really know if I should say good morning, evening, or afternoon. So I wi
 ###
 
 ### 
-I am Amit, Director Of Engineering. ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
+I am Amit, Director Of Engineering, ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
 ###
 
 So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
