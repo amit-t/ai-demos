@@ -1,22 +1,27 @@
 
 
-> Hey everyone — thanks for joining in. I don't really know if I should say good morning, evening, or afternoon. So I wish you a good part of whatever the day you're having.
-> I am Amit, Director Of Engineering. ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
+> Hey everyone — thanks for joining in. 
+
+### 
+I don't really know if I should say good morning, evening, or afternoon. So I wish you a good part of whatever the day you're having.
+###
+
+### 
+I am Amit, Director Of Engineering. ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
+###
 
 So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
 You describe what you want in plain English, and an AI generates the code. You guide it, you shape it — but the AI does the heavy lifting.
 
 So what we're building is called TownTalk — a live Q&A app. You submit questions from your phone, they appear on screen as floating physics-based bubbles. The more you upvote, the bigger the bubble gets. And all of **you're going to be part of it**.
 
-You should see a QR code on screen right now. Pull out your phones, scan it, and submit a question — anything you want. They'll show up on screen as I build it.
+Let me share my screen here.
+You should see a QR code on screen right now. Pull out your phones, scan it, and submit a question and they'll show up on screen as I build the UI of TownTalk.
 
 **→ QR code is already showing on the waiting room page. Give people ~20 seconds to connect.**
 
-> Great — Let's go and build the application's physics based interactive UI.
+> Great — Everyone's with me, let's go.
 
----
-
-## Live Coding (Minute 1.5–3.5)
 
 > Alright, so I've got my Windsurf AI Agent open. I'm going to describe what I want, and it's going to write the entire front-end.
 
@@ -34,7 +39,7 @@ You should see a QR code on screen right now. Pull out your phones, scan it, and
 >
 > And then there's **Plan** mode, which is great for bigger features. You describe a goal, and the agent breaks it down into steps before writing anything. You review the plan, tweak it, and then let it execute. Think of it as pair-programming or a relentless tireless partner where the AI drafts the blueprint first.
 >
-> You'll also notice the model selector up here — you can pick which AI model powers Cascade. Different models have different strengths — speed, reasoning depth, code quality. For today I'm using one that balances speed and accuracy, because, well, we're live.
+> You'll also notice the model selector up here — you can pick which AI model powers Cascade. Different models have different strengths — speed, reasoning depth, code quality. For today I'm using one that balances speed and accuracy, because, well, we're live and I don't want to tempt the demo gods.
 
 And here it is my display.html fully written by Windsurf AI Agent. Let's go and refresh our screen and see it in action.
 
@@ -48,13 +53,18 @@ Floating bubbles — each one is a question someone in this audience submitted. 
 
 ## Closing (Minute 3.5–5)
 
-> So let's step back. In about 3 minutes, we went from a blank page to a working, real-time, interactive application that hundreds of people across the world are using right now.
+> So let's step back. In about 3 minutes, we went from a blank page to a working, real-time, interactive application that several of you from across the world are using right now.
 >
 > This isn't about replacing engineers. What you saw me do was *engineering* — deciding what to build, structuring the instructions, knowing what to ask for. The AI wrote the code, but the thinking was human.
 >
 > What changes is the speed. A feature that might take a sprint to prototype — you can have it running in minutes. A concept your product team wants you to validate? Build it live in the meeting.
 >
-> If time permits - Now for example product wants me to change the color of the bubble. I can just change the color in the prompt and it will be done in minutes.
+Let me see if I still have some time left, if I do we can nerd out a little buit more here 
+Let's imagine product, because it's always them, wants me to change the color of the bubble. Here's what I'm going to do
+
+Change the color of the bubbles to a neo brutalist palette, with high contrast.
+
+And there it is, done in minutes not in sprints.
 >
 > Thanks, everyone. And for those of you who submitted questions — thank you for being part of this. 
 
