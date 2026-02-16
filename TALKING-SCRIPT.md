@@ -82,7 +82,11 @@ Floating bubbles — each one is a question someone in this audience submitted. 
 If something breaks, stay calm:
 
 - **Code won't generate**: *"The AI is thinking — let me nudge it."* → Re-paste or try a shorter prompt.
+
 - **Page looks broken**: *"Great example of why human oversight matters."* → Check console, or swap in backup display.html.
+
 - **WebSocket drops**: *"It'll auto-reconnect in a sec."* → If not, refresh.
+
 - **Audience can't connect**: *"Let me paste the URL in chat."* → Share mobile URL directly.
+
 - **Nothing works**: *"The demo gods aren't with us — let me show one I built earlier."* → Open backup display.html.
