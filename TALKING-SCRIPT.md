@@ -1,25 +1,4 @@
-# Townhall Demo — Talking Script
 
-> **Speaker**: Amit, Director of Engineering
-> **Format**: Virtual townhall (~1000 attendees, all geographies)
-> **Duration**: ~5 minutes
-> **Tone**: Light opener, then sincere and grounded throughout
-> **Demo**: TownTalk (Q&A bubbles) — single prompt, built live
-
----
-
-## Before You Go Live
-
-- Server running (`./start.sh` — confirm tunnel URL appears)
-- Browser open to `localhost` (waiting room with QR code shows automatically)
-- Windsurf AI Agent ready with Mega Prompt copied to clipboard
-- Phone nearby with mobile page loaded (to show audience what they'll see)
-- Backup `display.html` saved somewhere safe, just in case
-- QR code tested — scan it yourself, confirm voting works
-
----
-
-## Opening + QR Code (Minute 0–1.5)
 
 > Hey everyone — thanks for joining in. I don't really know if I should say good morning, evening, or afternoon. So I wish you a good part of whatever the day you're having.
 > I am Amit, Director Of Engineering. ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
@@ -39,25 +18,29 @@ You should see a QR code on screen right now. Pull out your phones, scan it, and
 
 ## Live Coding (Minute 1.5–3.5)
 
-> Alright, here's the moment. I've got my Windsurf AI Agent open. I'm going to describe what I want, and it's going to write the entire front-end.
+> Alright, so I've got my Windsurf AI Agent open. I'm going to describe what I want, and it's going to write the entire front-end.
 
-**→ Paste the Mega Prompt into Windsurf.**
-
-> I have this prompt prepared, because I am still human, let me paste it here.
+> I have this massive prompt pre-prepared, because I am still human, let me paste it here.
 >
-> What you're seeing is me giving the AI a detailed description — the layout, the physics engine, the WebSocket connections, the visual design. It's not magic — it's a very specific set of instructions.
+> What you're seeing is a very specific set of instructions I am giving AI — the layout, the physics engine, the WebSocket connections. No magic here.
 
-> While my agent writes, let me quickly take you through the windsurf's agent window called cascade.
+> While my agent writes, let me quickly take you through the windsurf interface.
 
-**→ Code appears. Save the file. Browser auto-refreshes from the waiting room.**
+> This panel on the right is called **Cascade** — it's essentially the brain of Windsurf's AI agent. There are three modes you can work in:
+>
+> **Code** is the default — you describe what you want, like I just did, and the agent writes code, edits files, runs commands, all in one flow. It has full context of your project, so it's not just auto-complete — it understands the whole codebase.
+>
+> **Ask** mode is for when you just want answers — "explain this function," "why is this failing," "what does this dependency do?" — without the agent making any changes to your code.
+>
+> And then there's **Plan** mode, which is great for bigger features. You describe a goal, and the agent breaks it down into steps before writing anything. You review the plan, tweak it, and then let it execute. Think of it as pair-programming or a relentless tireless partner where the AI drafts the blueprint first.
+>
+> You'll also notice the model selector up here — you can pick which AI model powers Cascade. Different models have different strengths — speed, reasoning depth, code quality. For today I'm using one that balances speed and accuracy, because, well, we're live.
 
 And here it is my display.html fully written by Windsurf AI Agent. Let's go and refresh our screen and see it in action.
 
 Floating bubbles — each one is a question someone in this audience submitted. Look at the sizes — the ones with more upvotes are already bigger. This is a real physics simulation with live WebSocket connections to all of your phones.
 
 > Go ahead — upvote something. Watch the bubble grow.
-
-**→ Let audience interact for 10-15 seconds. Click a popular bubble to show spotlight mode.**
 
 > If I click a bubble, I get a spotlight view with the live vote count updating in real-time. And if you missed the QR code earlier — press Q — there it is again.
 
