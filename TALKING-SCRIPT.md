@@ -22,18 +22,18 @@
 ## Opening + QR Code (Minute 0–1.5)
 
 > Hey everyone — thanks for joining in. I don't really know if I should say good morning, evening, or afternoon. So I wish you a good part of whatever the day you're having.
-> I am Amit, Director - Engineering and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
+> I am Amit, Director Of Engineering. ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
 
-So let's dive right into it. What I am doing today has a term I am sure all of you have heard aklready, it's called "vibe coding."
+So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
 You describe what you want in plain English, and an AI generates the code. You guide it, you shape it — but the AI does the heavy lifting.
 
-So what we're building is called TownTalk — a live Q&A app. You submit questions from your phone, they appear on screen as floating physics-based bubbles. The more you upvote, the bigger the bubble gets. And **you're going to be part of it**.
+So what we're building is called TownTalk — a live Q&A app. You submit questions from your phone, they appear on screen as floating physics-based bubbles. The more you upvote, the bigger the bubble gets. And all of **you're going to be part of it**.
 
 You should see a QR code on screen right now. Pull out your phones, scan it, and submit a question — anything you want. They'll show up on screen as I build it.
 
 **→ QR code is already showing on the waiting room page. Give people ~20 seconds to connect.**
 
-> Great — I can see some of you getting connected. Let's go and build the application's UI.
+> Great — Let's go and build the application's physics based interactive UI.
 
 ---
 
