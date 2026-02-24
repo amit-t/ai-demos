@@ -1,0 +1,291 @@
+Create a file `public/display.html` — a full-screen, dark-themed real-time visualization for a live Q&A app called "TownTalk". This MUST be a single self-contained HTML file with all CSS and JS inline — no external files except the CDN scripts below.
+
+**CDN (load in script tags in head):**
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+```
+
+---
+
+## 1. WebSocket Protocol
+
+A WebSocket server is already running on the same host. Connect with: `new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host)` — this auto-detects the protocol so it works both on `localhost` (ws) and through an HTTPS tunnel like ngrok (wss). Always use `location.host` not a hardcoded hostname.
+On connect, send: `{ "type": "join", "role": "display", "clientId": "display-main" }` 
+The server sends JSON messages with this exact shape:
+```json
+{
+  "type": "state",
+  "questions": [
+    { "id": "q1", "text": "What's our biggest opportunity?", "votes": 12, "timestamp": 1707600000000 }
+  ],
+  "stats": { "totalQuestions": 7, "totalVotes": 42, "connectedUsers": 3 }
+}
+```
+State messages arrive whenever questions are added or votes change. Parse with `JSON.parse(event.data)` and check `msg.type === 'state'`, then call your render function with `msg.questions` and `msg.stats`. Auto-reconnect every 2 seconds on close.
+
+---
+
+## 2. HTML Structure (layer order matters!)
+
+```html
+<canvas id="starfield"></canvas>  <!-- z-index: 0, position: fixed, inset: 0 -->
+<svg id="viz"></svg>               <!-- z-index: 1, position: fixed, inset: 0 -->
+<div id="stats-bar">...</div>     <!-- z-index: 10, position: fixed, top: 0 -->
+```
+
+---
+
+## 3. SVG Setup (critical)
+
+The `<svg id="viz">` element MUST have `position: fixed; inset: 0;` in CSS AND you must set its width and height attributes to `window.innerWidth` and `window.innerHeight` in JS on load and on resize:
+```js
+const svg = d3.select('#viz');
+svg.attr('width', window.innerWidth).attr('height', window.innerHeight);
+```
+Without this, D3 renders bubbles but they're invisible because the SVG has zero dimensions.
+
+Inside the `<svg>`, include a `<defs>` block with 5 SVG glow filters (one per color tier). Each filter uses feGaussianBlur → feFlood → feComposite → feMerge to create a colored glow behind the bubble. Example for tier 0:
+```html
+<filter id="glow-0" x="-50%" y="-50%" width="200%" height="200%">
+  <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+  <feFlood flood-color="#FF006E" flood-opacity="0.35" result="color"/>
+  <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+```
+Create glow-0 through glow-4 with increasing stdDeviation (6,8,10,12,14) and opacity (0.35→0.55).
+
+Also append a `<g>` group inside the SVG: `const g = svg.append('g');` — all bubbles go inside this group.
+
+---
+
+## 4. D3 Force Simulation (follow this pattern exactly)
+
+```js
+let nodes = [];  // mutable array — D3 mutates this with x, y, vx, vy
+
+const simulation = d3.forceSimulation(nodes)
+  .force('center', d3.forceCenter(W / 2, H / 2))
+  .force('charge', d3.forceManyBody().strength(-80))
+  .force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9))
+  .force('x', d3.forceX(W / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .force('y', d3.forceY(H / 2).strength(d => 0.02 + Math.min(0.06, d.votes * 0.002)))
+  .alphaDecay(0.015)
+  .velocityDecay(0.35)
+  .on('tick', () => {
+    g.selectAll('.bubble').attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+```
+
+**Bubble radius:** `function getRadius(votes) { return Math.min(130, 36 + Math.sqrt(votes) * 14); }` 
+
+**Color tiers (neo-brutalist palette):**
+- 0–4 votes: #FF006E (hot pink), filter glow-0
+- 5–14: #FB5607 (orange-red), glow-1
+- 15–29: #FFBE0B (bright yellow), glow-2
+- 30–49: #8338EC (purple), glow-3
+- 50+: #3A86FF (electric blue), glow-4
+
+---
+
+## 5. Rendering Bubbles (D3 data join) - CRITICAL: INCLUDE VOTE BADGES
+
+When a new state message arrives, update your `nodes` array (add new questions, update votes on existing, remove deleted), then do a D3 data join:
+```js
+const bubbles = g.selectAll('.bubble').data(nodes, d => d.id);
+
+// EXIT — fade out removed bubbles
+bubbles.exit().transition().duration(400).style('opacity', 0).remove();
+
+// ENTER — create new bubble groups
+const enter = bubbles.enter().append('g').attr('class', 'bubble')
+  .attr('transform', d => `translate(${d.x},${d.y}) scale(0)`)
+  .style('opacity', 0);
+
+// Add to each entering group:
+// 1. Main bubble circle
+enter.append('circle').attr('r', d => getRadius(d.votes))
+  .attr('fill', d => getTierColor(d.votes)).attr('fill-opacity', 0.18)
+  .attr('stroke', d => getTierColor(d.votes)).attr('stroke-width', 1.5)
+  .attr('filter', d => getTierGlow(d.votes));
+
+// 2. Question text in foreignObject
+enter.append('foreignObject')
+  .attr('x', d => -getRadius(d.votes) * 0.7)
+  .attr('y', d => -getRadius(d.votes) * 0.7)
+  .attr('width', d => getRadius(d.votes) * 1.4)
+  .attr('height', d => getRadius(d.votes) * 1.4)
+  .append('xhtml:div')  // MUST use xhtml: namespace for foreignObject
+  .attr('class', 'bubble-text')
+  .text(d => d.text);
+
+// 3. VOTE BADGE CIRCLE (positioned at top-right of bubble)
+enter.append('circle')
+  .attr('class', 'vote-badge')
+  .attr('cx', d => getRadius(d.votes) * 0.6)
+  .attr('cy', d => -getRadius(d.votes) * 0.6)
+  .attr('r', 16)
+  .attr('fill', '#000')
+  .attr('fill-opacity', 0.8)
+  .attr('stroke', d => getTierColor(d.votes))
+  .attr('stroke-width', 2);
+
+// 4. VOTE COUNT TEXT (centered in badge)
+enter.append('text')
+  .attr('class', 'vote-text')
+  .attr('x', d => getRadius(d.votes) * 0.6)
+  .attr('y', d => -getRadius(d.votes) * 0.6)
+  .attr('text-anchor', 'middle')
+  .attr('dominant-baseline', 'middle')
+  .attr('fill', '#fff')
+  .attr('font-size', '12px')
+  .attr('font-weight', '700')
+  .text(d => d.votes);
+
+// Animate entrance with elastic spring
+enter.transition().duration(800)
+  .ease(d3.easeElasticOut.amplitude(1).period(0.4))
+  .attr('transform', d => `translate(${d.x},${d.y}) scale(1)`)
+  .style('opacity', 1);
+
+// MERGE — update existing bubbles (radius, colors, text, VOTE BADGE)
+const merged = enter.merge(bubbles);
+
+// Update main circle
+merged.select('circle').transition().duration(300)
+  .attr('r', d => getRadius(d.votes))
+  .attr('fill', d => getTierColor(d.votes))
+  .attr('stroke', d => getTierColor(d.votes))
+  .attr('filter', d => getTierGlow(d.votes));
+
+// Update text container
+merged.select('foreignObject').transition().duration(300)
+  .attr('x', d => -getRadius(d.votes) * 0.7)
+  .attr('y', d => -getRadius(d.votes) * 0.7)
+  .attr('width', d => getRadius(d.votes) * 1.4)
+  .attr('height', d => getRadius(d.votes) * 1.4);
+
+// Update question text
+merged.select('.bubble-text').text(d => d.text);
+
+// Update VOTE BADGE position and color
+merged.select('.vote-badge').transition().duration(300)
+  .attr('cx', d => getRadius(d.votes) * 0.6)
+  .attr('cy', d => -getRadius(d.votes) * 0.6)
+  .attr('stroke', d => getTierColor(d.votes));
+
+// Update VOTE COUNT text and position
+merged.select('.vote-text').transition().duration(300)
+  .attr('x', d => getRadius(d.votes) * 0.6)
+  .attr('y', d => -getRadius(d.votes) * 0.6)
+  .text(d => d.votes);
+
+// Make bubbles clickable
+merged.style('cursor', 'pointer').on('click', (event, d) => openSpotlight(d));
+
+// Restart simulation
+simulation.nodes(nodes);
+simulation.force('collision', d3.forceCollide(d => getRadius(d.votes) + 6).strength(0.9));
+simulation.alpha(0.4).restart();
+```
+
+**IMPORTANT: preserve existing node positions.** When updating nodes from server state, keep `x`, `y`, `vx`, `vy` from the existing node objects. Only update `votes` and `text`. New nodes get `x = W/2 + random jitter, y = H/2 + random jitter`.
+
+---
+
+## 6. Background Starfield
+
+A `<canvas>` with `position: fixed; inset: 0; z-index: 0`. Create ~120 stars with random positions. On each `requestAnimationFrame`, draw each star with alpha = `0.25 + 0.55 * (0.5 + 0.5 * sin(t * speed + phase))` for a gentle twinkling effect. Resize canvas on window resize.
+
+---
+
+## 7. Stats Bar
+
+Fixed at top with `background: linear-gradient(180deg, rgba(7,7,15,0.92) 0%, transparent 100%)`. Left: "TownTalk" logo with gradient purple icon (💬). Right: three stat counters (Questions, Votes, Connected) — animate number changes using requestAnimationFrame stepping. Plus a "Join" button that opens `/mobile.html`.
+
+---
+
+## 8. Spotlight Mode
+
+- Make each `.bubble` group clickable. On click, open a full-screen spotlight overlay.
+- Add the click handler on the merged selection (after enter.merge): `merged.style('cursor', 'pointer').on('click', (event, d) => openSpotlight(d));` 
+- The overlay is a `<div>` with `position: fixed; inset: 0; z-index: 50; background: rgba(7,7,15,0.85); backdrop-filter: blur(20px);` 
+- Centered card (max-width 800px, rounded 24px corners, background #111827, border: 1px solid rgba(255,255,255,0.1)):
+  - Question text at 36–40px font size, font-weight 600
+  - Vote count in large text (64px) with gradient color (indigo → purple via background-clip: text)
+  - "votes" label below in #64748b
+  - Close ✕ button top-right
+- Entry: overlay opacity 0→1, card `transform: scale(0.9) → scale(1)` with `cubic-bezier(0.34, 1.56, 0.64, 1)` over 300ms
+- Close on: Escape key, click outside card, or ✕ button
+- Store the spotlighted question ID. In your WebSocket state handler, if spotlight is open, update the displayed vote count from the latest data.
+
+---
+
+## 9. QR Code Overlay
+
+- Press Q to toggle a full-screen QR overlay (z-index: 100, above spotlight).
+- On open, fetch `GET /api/info` — this returns:
+  ```json
+  { "ip": "192.168.1.5", "port": 3000, "url": "https://abc.ngrok-free.app", "localUrl": "http://192.168.1.5:3000", "tunnelUrl": "https://abc.ngrok-free.app" }
+  ```
+  The `url` field is the best URL (tunnel if available, else local IP).
+- Build QR URL: `info.url + '/mobile.html'` 
+- Create QR code using: `new QRCode(containerElement, { text: mobileUrl, width: 220, height: 220, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M })` 
+- Display centered on dark blurred backdrop: white-background card with QR image, "Join TownTalk" title, scan instruction subtitle, and the URL in monospace below.
+- Below URL: if `info.tunnelUrl` exists, show green badge "🌐 Public URL"; else amber badge "📡 Local network only"
+- **Poll `/api/info` every 5 seconds** using `setInterval`. If the URL changes, clear the QR container innerHTML and regenerate. This handles the tunnel starting after the page loads.
+- Close on: press Q again, press Escape, or click the backdrop.
+
+---
+
+## 10. Simulation Mode
+
+- Add a boolean `let simulating = false;` and a timer variable `let simTimer = null;` 
+- Pressing **S** toggles simulation on/off:
+  - On: set `simulating = true`, start a `setInterval` every 400ms, show an orange banner
+  - Off: set `simulating = false`, `clearInterval(simTimer)`, hide the banner
+- The orange banner is a `<div>` positioned fixed below the stats bar: `top: 64px; left: 50%; transform: translateX(-50%); background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.4); color: #f97316; padding: 6px 16px; border-radius: 20px; font-size: 12px; z-index: 10;` Text: "⚡ Simulation Mode"
+- Every 400ms interval tick, send a WebSocket message. Use `Math.random() < 0.3` to decide:
+  - **30% chance — submit a new question:** Send `{ "type": "submit", "text": "<random from list>", "clientId": "sim-" + Math.random().toString(36).slice(2,8) }`. Use these questions:
+    "What's the biggest challenge we face this year?", "How can we improve onboarding?", "Should we invest more in developer tooling?", "What's one process you'd eliminate?", "How do you feel about hybrid work?", "What would you build with a free week?", "How can we improve cross-team communication?", "What training would help you grow?", "Should we host more social events?", "How can leadership be more transparent?"
+  - **70% chance — upvote a random question:** Pick a random question from the current `nodes` array (weight toward popular ones by using `Math.random() * Math.random()` as index). Send `{ "type": "upvote", "questionId": node.id, "clientId": "sim-" + Math.random().toString(36).slice(2,8) }`. The unique clientId ensures the server doesn't block it as a duplicate vote.
+- Make sure the S key handler checks that `ws.readyState === WebSocket.OPEN` before starting simulation.
+
+---
+
+## 11. Hint Bar
+
+At the very bottom of the screen, a small pill-shaped `<div>` with `position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); opacity: 0.4; font-size: 12px;` saying "Click any bubble to spotlight · Press Q for QR code · Press S to simulate"
+
+---
+
+## 12. Keyboard Shortcuts
+
+- **Q** = toggle QR overlay
+- **S** = toggle simulation mode
+- **F** = toggle fullscreen
+- **R** = send `{ "type": "reset" }` to WebSocket
+- **Escape** = close QR overlay or spotlight
+
+---
+
+## 13. CSS
+
+`.bubble-text` class: `color: #fff; font-size: 13px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; word-break: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.5);` 
+
+Body: `background: #07070f; overflow: hidden; width: 100vw; height: 100vh;`
+
+---
+
+## 14. CRITICAL VOTE BADGE REQUIREMENTS
+
+**EVERY bubble MUST display:**
+1. A circular vote badge positioned at the top-right (cx: radius*0.6, cy: -radius*0.6)
+2. Black semi-transparent background (fill-opacity: 0.8) 
+3. Colored stroke matching the bubble's tier color
+4. White vote count text centered in the badge
+5. Badge must update position and color when bubble size changes
+6. Vote count must update in real-time when votes change
+
+**The vote badge is NOT optional - it must be visible on every bubble at all times.**
