@@ -5,11 +5,12 @@ I don't really know if I should say good morning, evening, or afternoon. So I wi
 ###
 
 ### 
-I am Amit, Director Of Engineering ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides. No pre-recorded videos. I'm going to build a working application from scratch, right here, while you watch. 
+I am Amit, Director Of Engineering ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
 ###
 
 So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
 You describe what you want in plain English, and an AI generates the code. You guide it, you shape it — but the AI does the heavy lifting.
+This is all incredibly powerful stuff. 
 
 So what we're building is called TownTalk — a live Q&A app. You submit questions from your phone, they appear on screen as floating physics-based bubbles. The more you upvote, the bigger the bubble gets. And all of **you're going to be part of it**.
 
@@ -25,9 +26,10 @@ You should see a QR code on screen right now. Pull out your phones, scan it, and
 
 > I have this massive prompt pre-prepared, because I am still human, let me paste it here.
 >
-> What you're seeing is a very specific set of instructions I am giving AI — the layout, the physics engine, the WebSocket connections. No magic here.
+> What you're seeing is a very specific set of instructions I am giving AI, it's a combination of plain english and technical specifications — the layout, the physics engine, the WebSocket connections. 
+> No magic here.
 
-> While my agent writes, let me quickly take you through the windsurf interface.
+> While my agent writes, let me quickly take you through the windsurf Agent's interface itself.
 
 > This panel on the right is called **Cascade** — it's essentially the brain of Windsurf's AI agent. There are three modes you can work in:
 >
