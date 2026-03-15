@@ -5,7 +5,7 @@ I don't really know if I should say good morning, evening, or afternoon. So I wi
 ###
 
 ### 
-I am Amit, Director Of Engineering ICS, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
+I am Amit, I lead the asset-management, engage and transact portfolios for Sushant and Hani, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
 ###
 
 So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
@@ -83,3 +83,5 @@ If something breaks, stay calm:
 - **Audience can't connect**: *"Let me paste the URL in chat."* → Share mobile URL directly.
 
 - **Nothing works**: *"The demo gods aren't with us — let me show one I built earlier."* → Open backup display.html.
+
+I am also proud to announce that ICS 
