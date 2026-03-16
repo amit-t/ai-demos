@@ -5,13 +5,12 @@ I don't really know if I should say good morning, evening, or afternoon. So I wi
 ###
 
 ### 
-I am Amit, I lead the asset-management, engage and transact portfolios for Sushant and Hani, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
+I, everyone, I wish you a good part of whatever the day you're having. My name is Amit, I lead the cloud teams for asset-management, engage and transact portfolios for Sushant and Hani, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
 ###
 
 So let's dive right into it. What I am doing today has a term I am sure all of you have heard already, it's called "vibe coding."
 You describe what you want in plain English, and an AI generates the code. You guide it, you shape it — but the AI does the heavy lifting.
 This is all incredibly powerful stuff. 
-
 So what we're building is called TownTalk — a live Q&A app. You submit questions from your phone, they appear on screen as floating physics-based bubbles. The more you upvote, the bigger the bubble gets. And all of **you're going to be part of it**.
 
 Let me share my screen here.
@@ -65,6 +64,8 @@ Let's imagine product, because it's always them, wants me to change the color of
 Change the color of the bubbles to a neo brutalist palette, with high contrast.
 
 And there it is, done in minutes not in sprints.
+
+I am also proud to say that all of our ICS teams today are using these tools extensively, and we'd be the first teams to use these pricniples and tools add AI capabiltities to our product, adding a significant advantage to our customers and partners.
 >
 > Thanks, everyone. And for those of you who submitted questions — thank you for being part of this. 
 
@@ -84,4 +85,4 @@ If something breaks, stay calm:
 
 - **Nothing works**: *"The demo gods aren't with us — let me show one I built earlier."* → Open backup display.html.
 
-I am also proud to announce that ICS 
+
