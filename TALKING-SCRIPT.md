@@ -59,9 +59,9 @@ Floating bubbles — each one is a question someone in this audience submitted. 
 > What changes is the speed. A feature that might take a sprint to prototype — you can have it running in minutes. A concept your product team wants you to validate? Build it live in the meeting.
 >
 Let me see if I still have some time left, if I do we can nerd out a little buit more here 
-Let's imagine product, because it's always them, wants me to change the color of the bubble. Here's what I'm going to do
+Let's imagine product wants me to change the color of the bubbles here and they have something very specific in mind. For example - 
 
-Change the color of the bubbles to a neo brutalist palette, with high contrast.
+Change the color of the bubbles to a neo brutalist palette, with high contrast, each bubble a different color.
 
 And there it is, done in minutes not in sprints.
 
