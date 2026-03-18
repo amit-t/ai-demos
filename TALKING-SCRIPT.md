@@ -1,10 +1,6 @@
 > Hey everyone — thanks for joining in. 
 
 ### 
-I don't really know if I should say good morning, evening, or afternoon. So I wish you a good part of whatever the day you're having.
-###
-
-### 
 I, everyone, I wish you a good part of whatever the day you're having. My name is Amit, I lead the cloud teams for asset-management, engage and transact portfolios for Sushant and Hani, and today I want to spend the next few minutes *showing* you what it looks like when AI and a human work together to build something real. No slides or pre-recorded videos. I'm going to build a working application from scratch, right here, as we all watch. 
 ###
 
